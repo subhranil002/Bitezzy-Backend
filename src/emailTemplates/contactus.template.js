@@ -1,92 +1,80 @@
 const contactUsTemplate = ({ name, email, message }) => {
-  return `
-  <!DOCTYPE html>
-  <html>
-    <head>
-      <meta charset="UTF-8" />
-      <title>BiteBot – New Contact Message</title>
-    </head>
-    <body style="margin:0;padding:0;background-color:#f3f4f6;">
-      <table width="100%" cellpadding="0" cellspacing="0" style="padding:20px;">
-        <tr>
-          <td align="center">
-            <table width="100%" max-width="520" cellpadding="0" cellspacing="0"
-              style="
-                background:#ffffff;
-                border-radius:8px;
-                padding:32px;
-                box-shadow:0 10px 25px rgba(0,0,0,0.05);
-                font-family:Arial,sans-serif;
-              ">
-              
-              <!-- Brand -->
-              <tr>
-                <td align="center" style="padding-bottom:20px;">
-                  <h1 style="margin:0;color:#4f46e5;">BiteBot 🤖</h1>
-                  <p style="margin:6px 0 0;color:#6b7280;font-size:14px;">
-                    New Contact Us Submission
-                  </p>
-                </td>
-              </tr>
+    return `
+  <div style="
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    background-color: #fff7ed; /* Very light orange/cream background */
+    padding: 60px 20px;
+    color: #4b5563;
+  ">
+    <div style="
+      max-width: 500px;
+      margin: 0 auto;
+      background: #ffffff;
+      padding: 48px 40px;
+      border-radius: 1px;
+      border: 1px solid #ffedd5; /* Subtle orange border */
+      box-shadow: 0 4px 20px rgba(0,0,0,0.03); 
+    ">
 
-              <!-- Divider -->
-              <tr>
-                <td style="padding:16px 0;">
-                  <hr style="border:none;border-top:1px solid #e5e7eb;" />
-                </td>
-              </tr>
+      <div style="border-bottom: 2px solid #fb923c; padding-bottom: 24px; margin-bottom: 32px;">
+        <h1 style="
+          margin: 0;
+          color: #ea580c; /* Sophisticated deep orange */
+          font-size: 14px;
+          font-weight: 700;
+          letter-spacing: 2px;
+          text-transform: uppercase;
+        ">
+          BiteBot Admin
+        </h1>
+        <h2 style="
+          margin: 12px 0 0;
+          font-size: 24px;
+          color: #1f2937;
+          font-weight: 300;
+        ">
+          New Contact Submission
+        </h2>
+      </div>
 
-              <!-- User Details -->
-              <tr>
-                <td style="font-size:15px;color:#374151;line-height:1.6;">
-                  <p><strong>Name:</strong> ${name}</p>
-                  <p><strong>Email:</strong> ${email}</p>
-                </td>
-              </tr>
+      <div style="margin-bottom: 32px;">
+        <p style="margin: 0 0 8px; font-size: 11px; color: #9ca3af; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">
+          From
+        </p>
+        <p style="margin: 0; font-size: 16px; color: #111827; font-weight: 500;">
+          ${name}
+        </p>
+        <a href="mailto:${email}" style="display: block; margin-top: 4px; font-size: 14px; color: #ea580c; text-decoration: none;">
+          ${email}
+        </a>
+      </div>
 
-              <!-- Message -->
-              <tr>
-                <td style="padding-top:16px;">
-                  <p style="font-size:15px;color:#111827;margin-bottom:8px;">
-                    <strong>Message:</strong>
-                  </p>
-                  <div style="
-                    background:#f9fafb;
-                    padding:16px;
-                    border-radius:6px;
-                    font-size:14px;
-                    color:#374151;
-                    white-space:pre-line;
-                  ">
-                    ${message}
-                  </div>
-                </td>
-              </tr>
+      <div>
+        <p style="margin: 0 0 12px; font-size: 11px; color: #9ca3af; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">
+          Message
+        </p>
+        <div style="
+          background-color: #f9fafb;
+          border: 1px solid #e5e7eb;
+          padding: 20px;
+          border-radius: 4px;
+          font-size: 14px;
+          line-height: 1.6;
+          color: #374151;
+          white-space: pre-line;
+        ">
+          ${message}
+        </div>
+      </div>
 
-              <!-- Footer -->
-              <tr>
-                <td style="padding-top:28px;">
-                  <hr style="border:none;border-top:1px solid #e5e7eb;" />
-                </td>
-              </tr>
+      <div style="margin-top: 40px; border-top: 1px solid #f3f4f6; padding-top: 24px;">
+        <p style="font-size: 11px; color: #9ca3af; margin: 0;">
+          Received via BiteBot Contact Form • ${new Date().toLocaleDateString()}
+        </p>
+      </div>
 
-              <tr>
-                <td style="font-size:12px;color:#6b7280;line-height:1.5;">
-                  <p>
-                    This message was sent via the BiteBot Contact Us form.
-                  </p>
-                  <p>
-                    © ${new Date().getFullYear()} BiteBot. All rights reserved.
-                  </p>
-                </td>
-              </tr>
-
-            </table>
-          </td>
-        </tr>
-      </table>
-    </body>
-  </html>
+    </div>
+  </div>
   `;
 };
 

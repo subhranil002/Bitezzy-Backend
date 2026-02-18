@@ -1,111 +1,113 @@
 const forgotPasswordTemplate = ({ name, resetLink }) => {
     return `
-  <!DOCTYPE html>
-  <html>
-    <head>
-      <meta charset="UTF-8" />
-      <title>BiteBot – Reset Your Password</title>
-    </head>
-    <body style="margin:0;padding:0;background-color:#f3f4f6;">
-      <table width="100%" cellpadding="0" cellspacing="0" style="padding:20px;">
-        <tr>
-          <td align="center">
-            <table width="100%" max-width="520" cellpadding="0" cellspacing="0"
-              style="background:#ffffff;border-radius:8px;padding:32px;box-shadow:0 10px 25px rgba(0,0,0,0.05);font-family:Arial,sans-serif;">
-              
-              <!-- Brand -->
-              <tr>
-                <td align="center" style="padding-bottom:20px;">
-                  <h1 style="margin:0;color:#4f46e5;">BiteBot</h1>
-                </td>
-              </tr>
+  <div style="
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    background-color: #fff7ed; /* Very light orange/cream background */
+    padding: 60px 20px;
+    color: #4b5563;
+  ">
+    <div style="
+      max-width: 500px;
+      margin: 0 auto;
+      background: #ffffff;
+      padding: 48px 40px;
+      border-radius: 1px;
+      border: 1px solid #ffedd5; /* Subtle orange border */
+      text-align: center;
+    ">
 
-              <!-- Heading -->
-              <tr>
-                <td>
-                  <h2 style="color:#111827;margin-bottom:10px;">
-                    Reset your password
-                  </h2>
-                </td>
-              </tr>
+      <h1 style="
+        margin: 0 0 40px;
+        color: #ea580c; /* Sophisticated deep orange */
+        font-size: 14px;
+        font-weight: 700;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+      ">
+        BiteBot
+      </h1>
 
-              <!-- Content -->
-              <tr>
-                <td style="color:#374151;font-size:15px;line-height:1.6;">
-                  <p>Hello ${name},</p>
+      <h2 style="
+        margin: 0 0 24px;
+        font-size: 28px;
+        color: #1f2937;
+        font-weight: 300;
+        letter-spacing: -0.5px;
+        line-height: 1.2;
+      ">
+        Reset Your Password
+      </h2>
 
-                  <p>
-                    We received a request to reset the password for your BiteBot account.
-                    Click the button below to set a new password.
-                  </p>
+      <p style="
+        font-size: 15px; 
+        line-height: 1.8; 
+        color: #6b7280; 
+        margin-bottom: 32px;
+        font-weight: 400;
+      ">
+        Hello <strong>${name}</strong>,<br/>
+        We received a request to reset the password for your BiteBot account. 
+        Click the button below to choose a new one.
+      </p>
 
-                  <!-- CTA Button -->
-                  <div style="text-align:center;margin:28px 0;">
-                    <a href="${resetLink}"
-                      style="display:inline-block;padding:12px 24px;
-                      background:#4f46e5;color:#ffffff;text-decoration:none;
-                      border-radius:6px;font-weight:bold;">
-                      Reset Password
-                    </a>
-                  </div>
+      <a href="${resetLink}" style="
+        display: inline-block;
+        background-color: #1f2937; /* Dark gray/black for contrast */
+        color: #ffffff;
+        padding: 16px 36px;
+        text-decoration: none;
+        font-size: 13px;
+        font-weight: 600;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        border-radius: 2px;
+        margin-bottom: 32px;
+      ">
+        Reset Password
+      </a>
 
-                  <!-- Visible Link Section -->
-                  <p style="margin-top:10px;">
-                    Or copy and paste this link into your browser:
-                  </p>
+      <p style="
+        font-size: 13px;
+        color: #9ca3af;
+        margin-bottom: 24px;
+        line-height: 1.5;
+      ">
+        This link will expire in <strong>15 minutes</strong>. If you didn't ask to reset your password, you can safely ignore this email.
+      </p>
 
-                  <p style="
-                    background:#f9fafb;
-                    padding:12px;
-                    border-radius:6px;
-                    font-size:14px;
-                    word-break:break-all;
-                    color:#4f46e5;">
-                    ${resetLink}
-                  </p>
+      <div style="
+        width: 40px; 
+        height: 2px; 
+        background-color: #fb923c; /* Soft orange accent */ 
+        margin: 0 auto 40px;
+      "></div>
 
-                  <p>
-                    This password reset link will expire in
-                    <strong>15 minutes</strong> for security reasons.
-                  </p>
+      <p style="font-size: 13px; color: #6b7280; margin-bottom: 8px;">
+        Button not working? Copy and paste this link:
+      </p>
+      
+      <p style="
+        background: #f9fafb;
+        padding: 12px;
+        border-radius: 4px;
+        font-size: 11px;
+        color: #6b7280;
+        word-break: break-all;
+        border: 1px solid #e5e7eb;
+        margin-bottom: 40px;
+        font-family: monospace;
+      ">
+        ${resetLink}
+      </p>
 
-                  <p>
-                    If you didn’t request a password reset, you can safely ignore this email.
-                    Your account remains secure.
-                  </p>
+      <div style="margin-top: 40px; border-top: 1px solid #f3f4f6; padding-top: 24px;">
+        <p style="font-size: 11px; color: #9ca3af; letter-spacing: 1px; text-transform: uppercase;">
+          The BiteBot Team
+        </p>
+      </div>
 
-                  <p style="margin-top:24px;">
-                    Thanks,<br />
-                    <strong>The BiteBot Team</strong>
-                  </p>
-                </td>
-              </tr>
-
-              <!-- Divider -->
-              <tr>
-                <td style="padding:24px 0;">
-                  <hr style="border:none;border-top:1px solid #e5e7eb;" />
-                </td>
-              </tr>
-
-              <!-- Footer -->
-              <tr>
-                <td style="font-size:12px;color:#6b7280;line-height:1.5;">
-                  <p>
-                    If you have any questions, contact our support team.
-                  </p>
-                  <p>
-                    © ${new Date().getFullYear()} BiteBot. All rights reserved.
-                  </p>
-                </td>
-              </tr>
-
-            </table>
-          </td>
-        </tr>
-      </table>
-    </body>
-  </html>
+    </div>
+  </div>
     `;
 };
 

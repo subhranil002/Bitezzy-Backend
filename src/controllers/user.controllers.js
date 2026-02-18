@@ -198,6 +198,32 @@ export const handleLogin = async (req, res, next) => {
     }
 };
 
+export const handleGuestLogin = async (req, res, next) => {
+     try {
+        const user = await User.findById(constants.GUEST_ID);
+
+        const { accessToken } = await user.generateAccessToken();
+
+        res.cookie("accessToken", accessToken, {
+            httpOnly: true,
+            secure: true,
+            sameSite: "None",
+            maxAge: 7 * 24 * 60 * 60 * 1000,
+            path: "/",
+        });
+
+        return res
+            .status(200)
+            .json(new ApiResponse(200, "Logged in successfully", user));
+    } catch (error) {
+        console.log("Some Error Occured: ", error);
+        // If the error is already an instance of ApiError, pass it to the error handler
+        error instanceof ApiError
+            ? next(error)
+            : next(new ApiError(500, "Something went wrong during guest login"));
+    }
+}
+
 export const handleLogout = async (req, res, next) => {
     try {
         const user = await User.findById(req.user._id);

@@ -21,6 +21,7 @@ const constants = {
     GMAIL_API_REFRESH_TOKEN: process.env.GMAIL_API_REFRESH_TOKEN,
     AUTHORIZE_MAIL: process.env.AUTHORIZE_MAIL,
     RECEIVER_MAIL: process.env.RECEIVER_MAIL,
+    GUEST_ID: process.env.GUEST_ID,
 };
 
 export default constants;

@@ -1,57 +1,79 @@
 const welcomeTemplate = ({ name }) => {
     return `
     <div style="
-    font-family: Arial, sans-serif;
-    background-color:#f3f4f6;
-    padding:24px;
-    ">
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    background-color: #fff7ed; /* Very light orange/cream background */
+    padding: 60px 20px;
+    color: #4b5563;
+  ">
     <div style="
-      max-width:520px;
-      margin:0 auto;
-      background:#ffffff;
-      padding:32px;
-      border-radius:10px;
-      box-shadow:0 10px 25px rgba(0,0,0,0.05);
+      max-width: 500px;
+      margin: 0 auto;
+      background: #ffffff;
+      padding: 48px 40px;
+      border-radius: 1px; /* Sharper corners for minimalism */
+      border: 1px solid #ffedd5; /* Subtle orange border */
+      text-align: center;
     ">
 
-      <!-- Brand -->
       <h1 style="
-        margin-top:0;
-        color:#4f46e5;
-        text-align:center;
+        margin: 0 0 40px;
+        color: #ea580c; /* Sophisticated deep orange */
+        font-size: 20px;
+        font-weight: 700;
+        letter-spacing: 2px;
+        text-transform: uppercase;
       ">
-        BiteBot 🤖
+        BiteBot
       </h1>
 
-      <!-- Greeting -->
-      <h2 style="color:#111827;">
-        Hello ${name} 👋
+      <h2 style="
+        margin: 0 0 16px;
+        font-size: 28px;
+        color: #1f2937; /* Nearly black */
+        font-weight: 300; /* Light weight for elegance */
+        letter-spacing: -0.5px;
+      ">
+        Welcome to bitebot, ${name}.
       </h2>
 
-      <!-- Intro -->
-      <p style="font-size:15px;color:#374151;line-height:1.6;">
-        Welcome to <strong>BiteBot</strong> — your smart companion for discovering
-        better food, faster decisions, and happier bites 🍽️
+      <p style="
+        font-size: 15px; 
+        line-height: 1.8; 
+        color: #6b7280; 
+        margin-bottom: 32px;
+        font-weight: 400;
+      ">
+        We are thrilled to have you here. BiteBot is designed to make every meal a moment to savor. Discover curated recipes, track your nutrition, and find your next favorite dish with ease.
       </p>
 
-      <!-- Value -->
-      <p style="font-size:15px;color:#374151;line-height:1.6;">
-        Whether you’re exploring new dishes, tracking preferences, or making
-        mindful choices, BiteBot is here to guide you every step of the way.
-      </p>
+      <div style="
+        width: 40px; 
+        height: 2px; 
+        background-color: #fb923c; /* Soft orange accent */ 
+        margin: 0 auto 40px;
+      "></div>
 
-      <!-- Fun Line -->
-      <p style="font-size:15px;color:#374151;line-height:1.6;">     
-        Go ahead and explore — your next favorite bite is just a click away 😋
-      </p>
+      <a href="#" style="
+        display: inline-block;
+        background-color: #1f2937; /* Dark gray/black for contrast */
+        color: #ffffff;
+        padding: 16px 36px;
+        text-decoration: none;
+        font-size: 13px;
+        font-weight: 600;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        border-radius: 2px;
+      ">
+        Start Exploring
+      </a>
 
-      <!-- Footer -->
-      <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;" />
-
-      <p style="font-size:14px;color:#6b7280;">
-        Happy exploring,<br />
-        <strong>The BiteBot Team</strong>
-      </p>
+      <div style="margin-top: 60px; border-top: 1px solid #f3f4f6; padding-top: 24px;">
+        <p style="font-size: 12px; color: #9ca3af; letter-spacing: 0.5px;">
+          THE BITEBOT TEAM
+        </p>
+      </div>
 
     </div>
   </div>

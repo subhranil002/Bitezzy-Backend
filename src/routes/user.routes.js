@@ -14,6 +14,7 @@ import {
     handleUnsubscribeFromChef,
     handleGetFavourites,
     handleContactus,
+    handleGuestLogin,
 } from "../controllers/user.controllers.js";
 import { isLoggedIn } from "../middlewares/auth.middlewares.js";
 import upload from "../middlewares/multer.middlewares.js";
@@ -24,6 +25,7 @@ const userRoutes = Router();
 // auth routes
 userRoutes.route("/register").post(handleRegister);
 userRoutes.route("/login").post(handleLogin);
+userRoutes.route("/guest-login").post(handleGuestLogin);
 userRoutes.route("/logout").get(isLoggedIn, handleLogout);
 userRoutes
     .route("/change-avatar")

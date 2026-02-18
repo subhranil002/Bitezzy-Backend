@@ -9,6 +9,7 @@ import {
 import cookieParser from "cookie-parser";
 import constants from "./constants.js";
 import cors from "cors";
+import morgan from "morgan";
 
 const app = express();
 
@@ -23,6 +24,7 @@ app.use(express.json()); // to handle json data
 app.use(express.urlencoded({ extended: true })); // to handle url encoded data like form data
 app.use(cookieParser()); // to handle cookies
 app.use(cors(corsOptions));
+app.use(morgan("dev")); // to log requests
 
 // routes
 app.use("/api/test", healthCheckRoutes); // health check routes
