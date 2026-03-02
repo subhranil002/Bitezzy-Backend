@@ -217,6 +217,59 @@ const userSchema = new mongoose.Schema(
         forgotPasswordExpiry: {
             type: Date,
         },
+
+        cuisineSuggested: [
+            {
+                type: String,
+                enum: {
+                    values: [
+                        "indian",
+                        "italian",
+                        "chinese",
+                        "mexican",
+                        "thai",
+                        "japanese",
+                        "french",
+                        "mediterranean",
+                        "american",
+                        "korean",
+                        "vietnamese",
+                        "middle-eastern",
+                        "british",
+                        "spanish",
+                        "german",
+                        "greek",
+                    ],
+                    message: "Invalid cuisine type",
+                },
+            },
+        ],
+
+        dietaryLabelsSuggested: [
+            [
+                {
+                    type: String,
+                    enum: {
+                        values: [
+                            "vegetarian",
+                            "vegan",
+                            "keto",
+                            "paleo",
+                            "gluten-free",
+                            "dairy-free",
+                            "low-carb",
+                            "high-protein",
+                            "sugar-free",
+                            "organic",
+                            "raw",
+                            "mediterranean",
+                            "low-fat",
+                        ],
+                        message: "Invalid dietary label",
+                    },
+                },
+            ],
+        ],
     },
     { timestamps: true }
 );

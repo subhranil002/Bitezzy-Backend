@@ -1,6 +1,7 @@
 import Recipe from "../models/recipe.models.js";
 import { ApiResponse, ApiError, uploadImageToCloud, deleteLocalFiles } from "../utils/index.js";
 import User from "../models/user.models.js";
+import { updateSuggestionQueue } from "./user.controllers.js";
 
 // CREATE Recipe
 const addRecipe = async (req, res, next) => {
@@ -335,6 +336,13 @@ const getRecipeById = async (req, res, next) => {
                 chefId
             );
         }
+
+        // update user interaction history
+        updateSuggestionQueue(
+            userId,
+            recipe.cuisine,
+            recipe.dietaryLabels
+        );
 
         return res
             .status(200)

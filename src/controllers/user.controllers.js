@@ -199,7 +199,7 @@ export const handleLogin = async (req, res, next) => {
 };
 
 export const handleGuestLogin = async (req, res, next) => {
-     try {
+    try {
         const user = await User.findById(constants.GUEST_ID);
 
         const { accessToken } = await user.generateAccessToken();
@@ -220,9 +220,11 @@ export const handleGuestLogin = async (req, res, next) => {
         // If the error is already an instance of ApiError, pass it to the error handler
         error instanceof ApiError
             ? next(error)
-            : next(new ApiError(500, "Something went wrong during guest login"));
+            : next(
+                  new ApiError(500, "Something went wrong during guest login")
+              );
     }
-}
+};
 
 export const handleLogout = async (req, res, next) => {
     try {
@@ -700,5 +702,25 @@ export const handleUnsubscribeFromChef = async (req, res, next) => {
                       "Something went wrong during unsubscribing chef"
                   )
               );
+    }
+};
+
+export const updateSuggestionQueue = async (userId, cuisine, dietaryLabels) => {
+    try {
+        await User.findByIdAndUpdate(userId, {
+            $push: {
+                cuisineSuggested: {
+                    $each: [cuisine], // push each cuisine to array
+                    $slice: -5, // keep last 5 elements only
+                },
+
+                dietaryLabelsSuggested: {
+                    $each: [dietaryLabels], // push each cuisine to array
+                    $slice: -5, // keep last 5 elements only
+                },
+            },
+        });
+    } catch (error) {
+        console.log("Error updating suggestion queue: ", error);
     }
 };
