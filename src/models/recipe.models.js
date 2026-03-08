@@ -26,7 +26,6 @@ const recipeSchema = new mongoose.Schema(
             required: [true, "Cuisine is required"],
         },
 
-        // need discussion
         chefId: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "User",

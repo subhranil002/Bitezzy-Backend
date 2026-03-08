@@ -1,5 +1,10 @@
 import Recipe from "../models/recipe.models.js";
-import { ApiResponse, ApiError, uploadImageToCloud, deleteLocalFiles } from "../utils/index.js";
+import {
+    ApiResponse,
+    ApiError,
+    uploadImageToCloud,
+    deleteLocalFiles,
+} from "../utils/index.js";
 import User from "../models/user.models.js";
 import { updateSuggestionQueue } from "./user.controllers.js";
 
@@ -338,11 +343,33 @@ const getRecipeById = async (req, res, next) => {
         }
 
         // update user interaction history
-        updateSuggestionQueue(
-            userId,
-            recipe.cuisine,
-            recipe.dietaryLabels
-        );
+        // updateSuggestionQueue(
+        //     userId,
+        //     recipe.cuisine,
+        //     recipe.dietaryLabels
+        // );
+
+
+        /* This part deals with updating the user's suggestion queue */
+        // normalize dietary labels so order differences don't create duplicates
+        // const sortedDietaryLabels = [...(recipe.dietaryLabels || [])].sort();
+
+        // await User.findByIdAndUpdate(userId, {
+        //     $pull: {
+        //         cuisineSuggested: recipe.cuisine, // remove cuisine from array if exists to avoid duplicates
+        //         dietaryLabelsSuggested: sortedDietaryLabels, // remove dietary labels from array if exists to avoid duplicates
+        //     },
+        //     $push: {
+        //         cuisineSuggested: {
+        //             $each: [recipe.cuisine], // push each cuisine to array
+        //             $slice: -10,
+        //         },
+        //         dietaryLabelsSuggested: {
+        //             $each: [sortedDietaryLabels], // push each dietary labels to array
+        //             $slice: -10,
+        //         },
+        //     },
+        // });
 
         return res
             .status(200)

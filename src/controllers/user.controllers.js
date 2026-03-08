@@ -706,21 +706,21 @@ export const handleUnsubscribeFromChef = async (req, res, next) => {
 };
 
 export const updateSuggestionQueue = async (userId, cuisine, dietaryLabels) => {
-    try {
-        await User.findByIdAndUpdate(userId, {
-            $push: {
-                cuisineSuggested: {
-                    $each: [cuisine], // push each cuisine to array
-                    $slice: -5, // keep last 5 elements only
-                },
+    // try {
+    //     await User.findByIdAndUpdate(userId, {
+    //         $push: {
+    //             cuisineSuggested: {
+    //                 $each: [cuisine], // push each cuisine to array
+    //                 $slice: -5, // keep last 5 elements only
+    //             },
 
-                dietaryLabelsSuggested: {
-                    $each: [dietaryLabels], // push each cuisine to array
-                    $slice: -5, // keep last 5 elements only
-                },
-            },
-        });
-    } catch (error) {
-        console.log("Error updating suggestion queue: ", error);
-    }
+    //             dietaryLabelsSuggested: {
+    //                 $each: [dietaryLabels], // push each cuisine to array
+    //                 $slice: -5, // keep last 5 elements only
+    //             },
+    //         },
+    //     });
+    // } catch (error) {
+    //     console.log("Error updating suggestion queue: ", error);
+    // }
 };
