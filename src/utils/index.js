@@ -2,6 +2,7 @@ import ApiError from "./ApiError.js";
 import ApiResponse from "./ApiResponse.js";
 import {
     uploadImageToCloud,
+    deleteLocalFile,
     deleteLocalFiles,
     deleteCloudFile,
 } from "./fileUtils.js"; 
@@ -15,6 +16,7 @@ export {
     ApiError,
     ApiResponse,
     uploadImageToCloud,
+    deleteLocalFile,
     deleteLocalFiles,
     deleteCloudFile,
     // isBlankValue,

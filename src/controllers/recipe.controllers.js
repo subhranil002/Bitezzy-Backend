@@ -61,7 +61,7 @@ const addRecipe = async (req, res, next) => {
         /** ============================
          * 4️⃣ Upload Thumbnail
          * ============================ */
-        const uploadedThumb = await uploadImageToCloud(thumbnailFile.path);
+        const uploadedThumb = await uploadImageToCloud(thumbnailFile.path, "RECIPES");
 
         const thumbnail = {
             public_id: uploadedThumb.public_id,
@@ -74,7 +74,7 @@ const addRecipe = async (req, res, next) => {
         const uploadedSteps = [];
 
         for (const file of stepImagesFiles) {
-            const result = await uploadImageToCloud(file.path);
+            const result = await uploadImageToCloud(file.path, "RECIPES");
             uploadedSteps.push(result);
         }
 

@@ -4,7 +4,7 @@ import {
     ApiResponse,
     ApiError,
     uploadImageToCloud,
-    deleteLocalFiles,
+    deleteLocalFile,
     deleteCloudFile,
     // isBlankValue,
     // convertToMongoKey,
@@ -273,7 +273,7 @@ export const handleChangeAvatar = async (req, res, next) => {
         }
 
         // Upload avatar to Cloudinary
-        const newAvatar = await uploadImageToCloud(avatarLocalPath);
+        const newAvatar = await uploadImageToCloud(avatarLocalPath, "USER");
         if (!newAvatar.public_id || !newAvatar.secure_url) {
             throw new ApiError(400, "Error uploading avatar");
         }
@@ -297,7 +297,7 @@ export const handleChangeAvatar = async (req, res, next) => {
             new ApiResponse(200, "Avatar Uploaded Successfully", updatedUser)
         );
     } catch (error) {
-        await deleteLocalFiles(avatarLocalPath);
+        await deleteLocalFile(avatarLocalPath);
         console.log("Some Error Occured: ", error);
         // If the error is already an instance of ApiError, pass it to the error handler
         if (error instanceof ApiError) {

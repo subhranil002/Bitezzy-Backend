@@ -23,6 +23,27 @@ const recipeSchema = new mongoose.Schema(
 
         cuisine: {
             type: String,
+            enum: {
+                values: [
+                    "indian",
+                    "italian",
+                    "chinese",
+                    "mexican",
+                    "thai",
+                    "japanese",
+                    "french",
+                    "mediterranean",
+                    "american",
+                    "korean",
+                    "vietnamese",
+                    "middle-eastern",
+                    "british",
+                    "spanish",
+                    "german",
+                    "greek",
+                ],
+                message: "Invalid cuisine type",
+            },
             required: [true, "Cuisine is required"],
         },
 
@@ -127,7 +148,7 @@ const recipeSchema = new mongoose.Schema(
                 ref: "User",
             },
         ],
-        
+
         nutrition: {
             totalCalories: {
                 type: String,
