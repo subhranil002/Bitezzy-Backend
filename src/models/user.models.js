@@ -137,11 +137,23 @@ const userSchema = new mongoose.Schema(
         // Chef-specific profile (only populated for CHEFs)
         chefProfile: {
             education: {
-                type: String,
+                type: [
+                    {
+                        orderId: Number,
+                        description: String,
+                    },
+                ],
+                default: [],
             },
 
             experience: {
-                type: String,
+                type: [
+                    {
+                        orderId: Number,
+                        description: String,
+                    },
+                ],
+                default: [],
             },
 
             externalLinks: [
