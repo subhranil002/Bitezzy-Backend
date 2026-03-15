@@ -345,13 +345,6 @@ const getRecipeById = async (req, res, next) => {
             );
         }
 
-        // update user interaction history
-        // updateSuggestionQueue(
-        //     userId,
-        //     recipe.cuisine,
-        //     recipe.dietaryLabels
-        // );
-
         /* This part deals with updating the user's suggestion queue */
         // normalize dietary labels so order differences don't create duplicates
         const sortedDietaryLabels = [...(recipe.dietaryLabels || [])].sort();
@@ -377,23 +370,6 @@ const getRecipeById = async (req, res, next) => {
                 },
             },
         });
-
-        // await User.findByIdAndUpdate(userId, {
-        //     $pull: {
-        //         cuisineSuggested: recipe.cuisine, // remove cuisine from array if exists to avoid duplicates
-        //         dietaryLabelsSuggested: sortedDietaryLabels, // remove dietary labels from array if exists to avoid duplicates
-        //     },
-        //     $push: {
-        //         cuisineSuggested: {
-        //             $each: [recipe.cuisine], // push each cuisine to array
-        //             $slice: -10,
-        //         },
-        //         dietaryLabelsSuggested: {
-        //             $each: [sortedDietaryLabels], // push each dietary labels to array
-        //             $slice: -10,
-        //         },
-        //     },
-        // });
 
         return res
             .status(200)
@@ -709,7 +685,54 @@ const HandleGetRecommendedRecipes = async (req, res, next) => {
     }
 };
 
-const handleLikeUnlikeRecipe = async (req, res, next) => {
+const handleLikeRecipe = async (req, res, next) => {
+    try {
+        const { id: recipeId } = req.params;
+        const user = req.user; // from auth middleware
+
+        const recipe = await Recipe.findById(recipeId);
+        if (!recipe) {
+            return next(new ApiError(404, "Recipe not found"));
+        }
+        const alreadyLiked = recipe.likeCount?.includes(user._id);
+
+        if (alreadyLiked) {
+            return res.status(200).json(
+                new ApiResponse(200, "Recipe added to favourites", {
+                    recipeId,
+                    liked: true,
+                    totalLikes: recipe.likeCount.length,
+                })
+            );
+        }
+        // add like
+        recipe.likeCount.push(user._id);
+        user.favourites.push(recipeId);
+
+        // concurrent save instead of sequential
+        await Promise.all([recipe.save(), user.save()]);
+
+        return res.status(200).json(
+            new ApiResponse(200, "Recipe added to favourites", {
+                recipeId,
+                liked: true,
+                totalLikes: recipe.likeCount.length,
+            })
+        );
+    } catch (error) {
+        console.log("Error while adding recipe to favourites:", error);
+        return next(
+            error instanceof ApiError
+                ? error
+                : new ApiError(
+                      500,
+                      "Something went wrong while adding recipe to favourites"
+                  )
+        );
+    }
+};
+
+const handleUnlikeRecipe = async (req, res, next) => {
     try {
         const { id: recipeId } = req.params;
         const user = req.user; // from auth middleware
@@ -721,38 +744,36 @@ const handleLikeUnlikeRecipe = async (req, res, next) => {
 
         const alreadyLiked = recipe.likeCount?.includes(user._id);
 
-        if (alreadyLiked) {
-            // remove like
-            recipe.likeCount.pull(user._id);
-            user.favourites.pull(recipeId);
-        } else {
-            // add like
-            recipe.likeCount.push(user._id);
-            user.favourites.push(recipeId);
+        if (!alreadyLiked) {
+            return res.status(200).json(
+            new ApiResponse(200, "Recipe removed from favourites", {
+                recipeId,
+                liked: false,
+                totalLikes: recipe.likeCount.length,
+            })
+        );
         }
+
+        // remove like
+        recipe.likeCount.pull(user._id);
+        user.favourites.pull(recipeId);
 
         // concurrent save instead of sequential
         await Promise.all([recipe.save(), user.save()]);
 
         return res.status(200).json(
-            new ApiResponse(
-                200,
-                alreadyLiked
-                    ? "Like removed successfully"
-                    : "Recipe liked successfully",
-                {
-                    recipeId,
-                    liked: !alreadyLiked,
-                    totalLikes: recipe.likeCount.length,
-                }
-            )
+            new ApiResponse(200, "Recipe removed from favourites", {
+                recipeId,
+                liked: false,
+                totalLikes: recipe.likeCount.length,
+            })
         );
     } catch (error) {
-        console.log("Error toggling like:", error);
+        console.log("Error removing from favourites:", error);
         return next(
             error instanceof ApiError
                 ? error
-                : new ApiError(500, "Something went wrong while toggling like")
+                : new ApiError(500, "Something went wrong while removing from favourites")
         );
     }
 };
@@ -768,5 +789,6 @@ export {
     HandleGetQuickRecipes,
     HandleGetPremiumRecipes,
     HandleGetRecommendedRecipes,
-    handleLikeUnlikeRecipe,
+    handleLikeRecipe,
+    handleUnlikeRecipe
 };

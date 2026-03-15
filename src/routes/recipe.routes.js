@@ -10,7 +10,8 @@ import {
     HandleGetQuickRecipes,
     HandleGetPremiumRecipes,
     HandleGetRecommendedRecipes,
-    handleLikeUnlikeRecipe,
+    handleLikeRecipe,
+    handleUnlikeRecipe,
 } from "../controllers/recipe.controllers.js";
 import { parseRecipeJsonFields, validateRecipe, validateRecipeFiles } from "../middlewares/recipe.middlewares.js";
 import { isAuthorized, isLoggedIn } from "../middlewares/auth.middlewares.js";
@@ -40,7 +41,8 @@ recipeRoutes.route("/quick").get(HandleGetQuickRecipes);
 recipeRoutes.route("/premium").get(HandleGetPremiumRecipes);
 recipeRoutes.route("/recommended").get(isLoggedIn, HandleGetRecommendedRecipes);
 
-recipeRoutes.route("/like/:id").get(isLoggedIn, handleLikeUnlikeRecipe);
+recipeRoutes.route("/like/:id").get(isLoggedIn, handleLikeRecipe);
+recipeRoutes.route("/unlike/:id").get(isLoggedIn, handleUnlikeRecipe);
 
 recipeRoutes
     .route("/:id")
