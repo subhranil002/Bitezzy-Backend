@@ -61,7 +61,10 @@ const addRecipe = async (req, res, next) => {
         /** ============================
          * 4️⃣ Upload Thumbnail
          * ============================ */
-        const uploadedThumb = await uploadImageToCloud(thumbnailFile.path, "RECIPES");
+        const uploadedThumb = await uploadImageToCloud(
+            thumbnailFile.path,
+            "RECIPES"
+        );
 
         const thumbnail = {
             public_id: uploadedThumb.public_id,
@@ -329,8 +332,8 @@ const getRecipeById = async (req, res, next) => {
         const isOwner = userId === chefId;
 
         // Check if user subscribed to chef
-        const isSubscribed = req.user.profile.subscribed
-            .map((id) => id.toString())
+        const isSubscribed = req.user?.profile?.subscribed
+            ?.map((id) => id.toString())
             .includes(chefId);
 
         if (recipe.isPremium && !isOwner && !isSubscribed) {
@@ -349,27 +352,48 @@ const getRecipeById = async (req, res, next) => {
         //     recipe.dietaryLabels
         // );
 
-
         /* This part deals with updating the user's suggestion queue */
         // normalize dietary labels so order differences don't create duplicates
         const sortedDietaryLabels = [...(recipe.dietaryLabels || [])].sort();
 
+        // remove existing values
         await User.findByIdAndUpdate(userId, {
             $pull: {
-                cuisineSuggested: recipe.cuisine, // remove cuisine from array if exists to avoid duplicates
-                dietaryLabelsSuggested: sortedDietaryLabels, // remove dietary labels from array if exists to avoid duplicates
+                cuisineSuggested: recipe.cuisine,
+                dietaryLabelsSuggested: sortedDietaryLabels,
             },
+        });
+
+        // push latest values
+        await User.findByIdAndUpdate(userId, {
             $push: {
                 cuisineSuggested: {
-                    $each: [recipe.cuisine], // push each cuisine to array
+                    $each: [recipe.cuisine],
                     $slice: -10,
                 },
                 dietaryLabelsSuggested: {
-                    $each: [sortedDietaryLabels], // push each dietary labels to array
+                    $each: [sortedDietaryLabels],
                     $slice: -10,
                 },
             },
         });
+
+        // await User.findByIdAndUpdate(userId, {
+        //     $pull: {
+        //         cuisineSuggested: recipe.cuisine, // remove cuisine from array if exists to avoid duplicates
+        //         dietaryLabelsSuggested: sortedDietaryLabels, // remove dietary labels from array if exists to avoid duplicates
+        //     },
+        //     $push: {
+        //         cuisineSuggested: {
+        //             $each: [recipe.cuisine], // push each cuisine to array
+        //             $slice: -10,
+        //         },
+        //         dietaryLabelsSuggested: {
+        //             $each: [sortedDietaryLabels], // push each dietary labels to array
+        //             $slice: -10,
+        //         },
+        //     },
+        // });
 
         return res
             .status(200)
@@ -387,7 +411,6 @@ const getRecipeById = async (req, res, next) => {
     }
 };
 
-// UPDATE Recipe (Check Required)
 const updateRecipe = async (req, res, next) => {
     try {
         const recipe = await Recipe.findByIdAndUpdate(req.params.id, req.body, {
@@ -415,7 +438,6 @@ const updateRecipe = async (req, res, next) => {
     }
 };
 
-// DELETE Recipe (OK)
 const deleteRecipe = async (req, res, next) => {
     try {
         const recipe = await Recipe.findByIdAndDelete(req.params.id);
