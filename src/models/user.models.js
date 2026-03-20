@@ -163,6 +163,31 @@ const userSchema = new mongoose.Schema(
                 },
             ],
 
+            culinarySpeciality: {
+                type: String,
+                enum: {
+                    values: [
+                        "indian",
+                        "italian",
+                        "chinese",
+                        "mexican",
+                        "thai",
+                        "japanese",
+                        "french",
+                        "mediterranean",
+                        "american",
+                        "korean",
+                        "vietnamese",
+                        "middle-eastern",
+                        "british",
+                        "spanish",
+                        "german",
+                        "greek",
+                    ],
+                    message: "Invalid culinary speciality",
+                },
+            },
+
             subscriptionPrice: {
                 type: Number,
             },

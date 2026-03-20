@@ -6,7 +6,6 @@ import {
     deleteLocalFiles,
 } from "../utils/index.js";
 import User from "../models/user.models.js";
-import { updateSuggestionQueue } from "./user.controllers.js";
 
 // CREATE Recipe
 const addRecipe = async (req, res, next) => {

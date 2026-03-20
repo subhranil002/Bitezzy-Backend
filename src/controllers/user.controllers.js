@@ -474,46 +474,65 @@ export const handleGetProfile = async (req, res, next) => {
 
 export const handleUpdateProfile = async (req, res, next) => {
     try {
-        const userId = req.user.id; // from auth middleware
+        const user = req.user; // from auth middleware
 
-        // Map request body keys to user profile fields
-        const fieldMap = {
+        // Common fields (allowed for all users)
+        const baseFieldMap = {
             name: "profile.name",
             bio: "profile.bio",
             dietaryLabels: "profile.dietaryLabels",
             allergens: "profile.allergens",
             cuisine: "profile.cuisine",
-            dietaryDraft: "profile.dietaryDraft",
-            allergenDraft: "profile.allergenDraft",
         };
 
+        // Chef-only fields
+        const chefFieldMap = {
+            education: "chefProfile.education",
+            experience: "chefProfile.experience",
+            culinarySpeciality: "chefProfile.culinarySpeciality",
+            subscriptionPrice: "chefProfile.subscriptionPrice",
+            externalLinks: "chefProfile.externalLinks",
+        };
+
+        // Decide allowed fields based on role
+        let allowedFieldMap = { ...baseFieldMap };
+
+        if (user.role === "chef") {
+            allowedFieldMap = { ...baseFieldMap, ...chefFieldMap };
+        }
+
         const updates = {};
+
+        // Only allow valid fields
         for (const key in req.body) {
-            updates[fieldMap[key]] = req.body[key];
+            if (allowedFieldMap[key]) {
+                updates[allowedFieldMap[key]] = req.body[key];
+            }
+        }
+
+        // prevent empty updates
+        if (Object.keys(updates).length === 0) {
+            throw new ApiError(400, "No valid fields provided for update");
         }
 
         const updatedUser = await User.findByIdAndUpdate(
-            req.user.id,
-            { $set: updates }, // already validated
+            user._id,
+            { $set: updates },
             { new: true, runValidators: true }
         );
 
         if (!updatedUser) {
-            throw new ApiError(403, "No user found");
+            throw new ApiError(404, "User not found");
         }
 
-        return res
-            .status(200)
-            .json(
-                new ApiResponse(200, "User updated successfully", updatedUser)
-            );
+        return res.status(200).json(
+            new ApiResponse(200, "User updated successfully", updatedUser)
+        );
+
     } catch (error) {
-        // If the error is already an instance of ApiError, pass it to the error handler
         if (error instanceof ApiError) {
             return next(error);
         }
-
-        // For all other errors, send a generic error message
         return next(new ApiError(500, "Something went wrong during update"));
     }
 };
@@ -703,24 +722,4 @@ export const handleUnsubscribeFromChef = async (req, res, next) => {
                   )
               );
     }
-};
-
-export const updateSuggestionQueue = async (userId, cuisine, dietaryLabels) => {
-    // try {
-    //     await User.findByIdAndUpdate(userId, {
-    //         $push: {
-    //             cuisineSuggested: {
-    //                 $each: [cuisine], // push each cuisine to array
-    //                 $slice: -5, // keep last 5 elements only
-    //             },
-
-    //             dietaryLabelsSuggested: {
-    //                 $each: [dietaryLabels], // push each cuisine to array
-    //                 $slice: -5, // keep last 5 elements only
-    //             },
-    //         },
-    //     });
-    // } catch (error) {
-    //     console.log("Error updating suggestion queue: ", error);
-    // }
 };
