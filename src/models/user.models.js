@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import bcrypt from "bcryptjs";
+import bcrypt, { compare } from "bcryptjs";
 import jwt from "jsonwebtoken";
 import constants from "../constants.js";
 
@@ -139,7 +139,11 @@ const userSchema = new mongoose.Schema(
             education: {
                 type: [
                     {
-                        orderId: Number,
+                        institution: String,
+                        degree: String,
+                        fieldOfStudy: String,
+                        startYear: Number,
+                        endYear: Number,
                         description: String,
                     },
                 ],
@@ -149,7 +153,12 @@ const userSchema = new mongoose.Schema(
             experience: {
                 type: [
                     {
-                        orderId: Number,
+                        title: String,
+                        employmentType: String,
+                        companyOrOrganization: String,
+                        isCurrenltyWorking: Boolean,
+                        startYear: Number,
+                        endYear: Number,
                         description: String,
                     },
                 ],
@@ -163,7 +172,7 @@ const userSchema = new mongoose.Schema(
                 },
             ],
 
-            culinarySpeciality: {
+            speciality: {
                 type: String,
                 enum: {
                     values: [

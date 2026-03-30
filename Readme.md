@@ -1,9 +1,9 @@
-# 🍳 BiteBot Backend [![Better Stack Badge](https://uptime.betterstack.com/status-badges/v3/monitor/26nhy.svg)](https://uptime.betterstack.com/?utm_source=status_badge)
+# 🍳 BiteBot Backend [![Better Stack Badge](https://uptime.betterstack.com/status-badges/v1/monitor/2ir54.svg)](https://uptime.betterstack.com/?utm_source=status_badge)
 
 
 **Intelligent Recipe Platform with Cost & Nutrition Insights**
 ## Backend URL
-https://bitebotbackend.onrender.com/
+https://api.bitebot.site/
 
 ## End Points
 - Health Check Route -> /api/test

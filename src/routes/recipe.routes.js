@@ -13,7 +13,11 @@ import {
     handleLikeRecipe,
     handleUnlikeRecipe,
 } from "../controllers/recipe.controllers.js";
-import { parseRecipeJsonFields, validateRecipe, validateRecipeFiles } from "../middlewares/recipe.middlewares.js";
+import {
+    parseRecipeJsonFields,
+    validateRecipe,
+    validateRecipeFiles,
+} from "../middlewares/recipe.middlewares.js";
 import { isAuthorized, isLoggedIn } from "../middlewares/auth.middlewares.js";
 import upload from "../middlewares/multer.middlewares.js";
 
@@ -47,7 +51,7 @@ recipeRoutes.route("/unlike/:id").get(isLoggedIn, handleUnlikeRecipe);
 recipeRoutes
     .route("/:id")
     .get(isLoggedIn, getRecipeById)
-    .put(validateRecipe, updateRecipe)
-    .delete(deleteRecipe);
+    .put(isLoggedIn, isAuthorized("CHEF"), validateRecipe, updateRecipe)
+    .delete(isLoggedIn, isAuthorized("CHEF"), deleteRecipe);
 
 export default recipeRoutes;

@@ -125,13 +125,14 @@ const addRecipe = async (req, res, next) => {
         await deleteLocalFiles();
         console.log("Some Error Occured: ", error);
 
-        if (error instanceof ApiError) {
-            return next(error);
-        }
-
-        return next(
-            new ApiError(500, "Something went wrong during recipe creation")
-        );
+        error instanceof ApiError
+            ? next(error)
+            : next(
+                  new ApiError(
+                      500,
+                      "Something went wrong during recipe creation"
+                  )
+              );
     }
 };
 
@@ -417,32 +418,23 @@ const deleteRecipe = async (req, res, next) => {
     try {
         const recipe = await Recipe.findByIdAndDelete(req.params.id);
         if (!recipe) {
-            // return res.status(404).json({
-            //     success: false,
-            //     message: "Recipe not found",
-            // });
-            return res
-                .status(404)
-                .json(new ApiResponse(404, "Recipe not found"));
+            throw new ApiError(404, "Recipe not found");
         }
-        // return res.status(200).json({
-        //     success: true,
-        //     message: "Recipe deleted successfully",
-        // });
+
         return res
             .status(200)
             .json(new ApiResponse(200, "Recipe deleted successfully"));
     } catch (error) {
         console.log("Some Error Occured: ", error);
-        // If the error is already an instance of ApiError, pass it to the error handler
-        if (error instanceof ApiError) {
-            return next(error);
-        }
 
-        // For all other errors, send a generic error message
-        return next(
-            new ApiError(500, "Something went wrong during recipe deletion")
-        );
+        error instanceof ApiError
+            ? next(error)
+            : next(
+                  new ApiError(
+                      500,
+                      "Something went wrong during recipe deletion"
+                  )
+              );
     }
 };
 
@@ -745,12 +737,12 @@ const handleUnlikeRecipe = async (req, res, next) => {
 
         if (!alreadyLiked) {
             return res.status(200).json(
-            new ApiResponse(200, "Recipe removed from favourites", {
-                recipeId,
-                liked: false,
-                totalLikes: recipe.likeCount.length,
-            })
-        );
+                new ApiResponse(200, "Recipe removed from favourites", {
+                    recipeId,
+                    liked: false,
+                    totalLikes: recipe.likeCount.length,
+                })
+            );
         }
 
         // remove like
@@ -772,7 +764,10 @@ const handleUnlikeRecipe = async (req, res, next) => {
         return next(
             error instanceof ApiError
                 ? error
-                : new ApiError(500, "Something went wrong while removing from favourites")
+                : new ApiError(
+                      500,
+                      "Something went wrong while removing from favourites"
+                  )
         );
     }
 };
@@ -789,5 +784,5 @@ export {
     HandleGetPremiumRecipes,
     HandleGetRecommendedRecipes,
     handleLikeRecipe,
-    handleUnlikeRecipe
+    handleUnlikeRecipe,
 };
