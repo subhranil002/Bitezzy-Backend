@@ -772,6 +772,133 @@ const handleUnlikeRecipe = async (req, res, next) => {
     }
 };
 
+const handleGetSearchRecipe = async (req, res, next) => {
+    try {
+        const { search, cuisine, diet, rating, priceMin, priceMax } = req.query;
+
+        // const page = Number(req.query.page) || 1;
+        const limit = Number(req.query.limit) || 10;
+        // const skip = (page - 1) * limit;
+
+        const pipeline = [];
+
+        // Search
+        if (search) {
+            pipeline.push({
+                $match: {
+                    $or: [
+                        { title: { $regex: search, $options: "i" } },
+                        { description: { $regex: search, $options: "i" } },
+                    ],
+                },
+            });
+        }
+
+        // Cuisine
+        if (cuisine) {
+            pipeline.push({
+                $match: { cuisine },
+            });
+        }
+
+        // Dietary Labels
+        if (diet) {
+            // handling mulitple dietry labels (vegan,keto, vegetarian)
+            const dietArray = diet
+                .split(",")
+                .map((d) => d.trim())
+                .filter(Boolean);
+
+            if (dietArray.length > 0) {
+                pipeline.push({
+                    $match: {
+                        dietaryLabels: { $in: dietArray },
+                    },
+                });
+            }
+        }
+
+        // Add Average Rating
+        if (rating) {
+            // calculating average rating from all the reviews
+            pipeline.push({
+                $addFields: {
+                    avgRating: {
+                        $ifNull: [{ $avg: "$reviews.rating" }, 0],
+                    },
+                },
+            });
+
+            // filtering by rating and average rating
+            const ratingNum = Number(rating);
+            if (!isNaN(ratingNum)) {
+                pipeline.push({
+                    $match: {
+                        avgRating: { $gte: ratingNum },
+                    },
+                });
+            }
+        }
+
+        // Calculate Total Recipe Cost (ONLY SUM marketPrice)
+        if (priceMin || priceMax) {
+            pipeline.push({
+                $addFields: {
+                    totalCost: {
+                        $sum: {
+                            $map: {
+                                input: "$ingredients",
+                                as: "ing",
+                                in: { $ifNull: ["$$ing.marketPrice", 0] },
+                            },
+                        },
+                    },
+                },
+            });
+
+            const priceQuery = {};
+            const min = Number(priceMin);
+            const max = Number(priceMax);
+
+            if (!isNaN(min)) priceQuery.$gte = min;
+            if (!isNaN(max)) priceQuery.$lte = max;
+
+            // filtering on the basis of totalCost 
+            if (Object.keys(priceQuery).length > 0) {
+                pipeline.push({
+                    $match: {
+                        totalCost: priceQuery,
+                    },
+                });
+            }
+        }
+
+        // Pagination
+        pipeline.push({
+            $facet: {
+                data: [{ $limit: limit }],
+                totalCount: [{ $count: "count" }],
+            },
+        });
+
+        const recipes = await Recipe.aggregate(pipeline);
+
+        res.status(200).json(
+            new ApiResponse(200, "Search results fetched", recipes)
+        );
+    } catch (error) {
+        console.log("Error while searching for recipes:", error);
+        return next(
+            error instanceof ApiError
+                ? error
+                : new ApiError(
+                      500,
+                      "Something went wrong while searching recipes."
+                  )
+        );
+    }
+};
+
 export {
     addRecipe,
     getAllRecipes,
@@ -785,4 +912,5 @@ export {
     HandleGetRecommendedRecipes,
     handleLikeRecipe,
     handleUnlikeRecipe,
+    handleGetSearchRecipe,
 };

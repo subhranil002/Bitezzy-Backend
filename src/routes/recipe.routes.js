@@ -12,6 +12,7 @@ import {
     HandleGetRecommendedRecipes,
     handleLikeRecipe,
     handleUnlikeRecipe,
+    handleGetSearchRecipe,
 } from "../controllers/recipe.controllers.js";
 import {
     parseRecipeJsonFields,
@@ -45,6 +46,7 @@ recipeRoutes.route("/quick").get(HandleGetQuickRecipes);
 recipeRoutes.route("/premium").get(HandleGetPremiumRecipes);
 recipeRoutes.route("/recommended").get(isLoggedIn, HandleGetRecommendedRecipes);
 
+recipeRoutes.route("/search").get(isLoggedIn, handleGetSearchRecipe);
 recipeRoutes.route("/like/:id").get(isLoggedIn, handleLikeRecipe);
 recipeRoutes.route("/unlike/:id").get(isLoggedIn, handleUnlikeRecipe);
 
