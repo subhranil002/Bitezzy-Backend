@@ -4,7 +4,7 @@ const contactUsAutoReplyTemplate = ({ name }) => {
   <html>
     <head>
       <meta charset="UTF-8" />
-      <title>BiteBot – We’ve received your message</title>
+      <title>Bitezzy – We’ve received your message</title>
     </head>
     <body style="margin:0;padding:0;background-color:#fff7ed; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;">
       <table width="100%" cellpadding="0" cellspacing="0" style="padding: 60px 20px;">
@@ -15,7 +15,7 @@ const contactUsAutoReplyTemplate = ({ name }) => {
               <tr>
                 <td style="border-bottom: 2px solid #fb923c; padding-bottom: 24px; margin-bottom: 32px;">
                   <h1 style="margin: 0; color: #ea580c; font-size: 14px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase;">
-                    BiteBot 
+                    Bitezzy 
                   </h1>
                   <h2 style="margin: 12px 0 0; font-size: 24px; color: #1f2937; font-weight: 300;">
                     Hi ${name} 
@@ -26,7 +26,7 @@ const contactUsAutoReplyTemplate = ({ name }) => {
               <tr>
                 <td style="padding-top: 32px; color: #4b5563; font-size: 15px; line-height: 1.6;">
                   <p style="margin: 0 0 16px;">
-                    Thanks for reaching out to <strong>BiteBot</strong>! We’ve received your message and our team is currently reviewing it.
+                    Thanks for reaching out to <strong>Bitezzy</strong>! We’ve received your message and our team is currently reviewing it.
                   </p>
                   
                   <p style="margin: 0 0 16px;">
@@ -34,12 +34,12 @@ const contactUsAutoReplyTemplate = ({ name }) => {
                   </p>
 
                   <p style="margin: 0 0 16px;">
-                    In the meantime, feel free to explore BiteBot and discover smarter, happier food choices 
+                    In the meantime, feel free to explore Bitezzy and discover smarter, happier food choices 
                   </p>
 
                   <p style="margin-top: 32px; color: #1f2937; font-weight: 500;">
                     Warm regards,<br />
-                    <span style="color: #ea580c;">The BiteBot Team</span>
+                    <span style="color: #ea580c;">The Bitezzy Team</span>
                   </p>
                 </td>
               </tr>
@@ -48,7 +48,7 @@ const contactUsAutoReplyTemplate = ({ name }) => {
                 <td style="margin-top: 40px; border-top: 1px solid #f3f4f6; padding-top: 24px;">
                   <p style="font-size: 11px; color: #9ca3af; margin: 0; line-height: 1.4;">
                     This is an automated confirmation. No need to reply to this address.<br />
-                    © ${new Date().getFullYear()} BiteBot. All rights reserved.
+                    © ${new Date().getFullYear()} Bitezzy. All rights reserved.
                   </p>
                 </td>
               </tr>

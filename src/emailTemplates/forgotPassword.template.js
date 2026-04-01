@@ -24,7 +24,7 @@ const forgotPasswordTemplate = ({ name, resetLink }) => {
         letter-spacing: 2px;
         text-transform: uppercase;
       ">
-        BiteBot
+        Bitezzy
       </h1>
 
       <h2 style="
@@ -46,7 +46,7 @@ const forgotPasswordTemplate = ({ name, resetLink }) => {
         font-weight: 400;
       ">
         Hello <strong>${name}</strong>,<br/>
-        We received a request to reset the password for your BiteBot account. 
+        We received a request to reset the password for your Bitezzy account. 
         Click the button below to choose a new one.
       </p>
 
@@ -102,7 +102,7 @@ const forgotPasswordTemplate = ({ name, resetLink }) => {
 
       <div style="margin-top: 40px; border-top: 1px solid #f3f4f6; padding-top: 24px;">
         <p style="font-size: 11px; color: #9ca3af; letter-spacing: 1px; text-transform: uppercase;">
-          The BiteBot Team
+          The Bitezzy Team
         </p>
       </div>
 

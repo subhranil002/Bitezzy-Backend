@@ -24,7 +24,7 @@ const welcomeTemplate = ({ name }) => {
         letter-spacing: 2px;
         text-transform: uppercase;
       ">
-        BiteBot
+        Bitezzy
       </h1>
 
       <h2 style="
@@ -34,7 +34,7 @@ const welcomeTemplate = ({ name }) => {
         font-weight: 300; /* Light weight for elegance */
         letter-spacing: -0.5px;
       ">
-        Welcome to bitebot, ${name}.
+        Welcome to Bitezzy, ${name}.
       </h2>
 
       <p style="
@@ -44,7 +44,7 @@ const welcomeTemplate = ({ name }) => {
         margin-bottom: 32px;
         font-weight: 400;
       ">
-        We are thrilled to have you here. BiteBot is designed to make every meal a moment to savor. Discover curated recipes, track your nutrition, and find your next favorite dish with ease.
+        We are thrilled to have you here. Bitezzy is designed to make every meal a moment to savor. Discover curated recipes, track your nutrition, and find your next favorite dish with ease.
       </p>
 
       <div style="
@@ -71,7 +71,7 @@ const welcomeTemplate = ({ name }) => {
 
       <div style="margin-top: 60px; border-top: 1px solid #f3f4f6; padding-top: 24px;">
         <p style="font-size: 12px; color: #9ca3af; letter-spacing: 0.5px;">
-          THE BITEBOT TEAM
+          THE BITEZZY TEAM
         </p>
       </div>
 

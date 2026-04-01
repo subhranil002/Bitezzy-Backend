@@ -25,7 +25,7 @@ const contactUsTemplate = ({ name, email, message }) => {
           letter-spacing: 2px;
           text-transform: uppercase;
         ">
-          BiteBot Admin
+          Bitezzy Admin
         </h1>
         <h2 style="
           margin: 12px 0 0;
@@ -69,7 +69,7 @@ const contactUsTemplate = ({ name, email, message }) => {
 
       <div style="margin-top: 40px; border-top: 1px solid #f3f4f6; padding-top: 24px;">
         <p style="font-size: 11px; color: #9ca3af; margin: 0;">
-          Received via BiteBot Contact Form • ${new Date().toLocaleDateString()}
+          Received via Bitezzy Contact Form • ${new Date().toLocaleDateString()}
         </p>
       </div>
 

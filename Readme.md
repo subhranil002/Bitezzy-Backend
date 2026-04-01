@@ -1,4 +1,4 @@
-# 🍳 BiteBot Backend [![Better Stack Badge](https://uptime.betterstack.com/status-badges/v1/monitor/2ir54.svg)](https://uptime.betterstack.com/?utm_source=status_badge)
+# 🍳 Bitezzy Backend [![Better Stack Badge](https://uptime.betterstack.com/status-badges/v1/monitor/2ir54.svg)](https://uptime.betterstack.com/?utm_source=status_badge)
 
 
 **Intelligent Recipe Platform with Cost & Nutrition Insights**
@@ -44,7 +44,7 @@ A Node.js/Express.js backend divided into two core modules:
 | Storage        | Cloudinary (recipe images)       |
 
 ## Collaboration
-- 🗂 **Clear Separation**: Independent yet integrated modules (User # 🍳 BiteBot Backend
+- 🗂 **Clear Separation**: Independent yet integrated modules (User # 🍳 Bitezzy Backend
 
 **Intelligent Recipe Platform with Cost & Nutrition Insights**
 
