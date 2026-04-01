@@ -772,38 +772,45 @@ const handleUnlikeRecipe = async (req, res, next) => {
     }
 };
 
+// export const SORT_OPTIONS = ["relevance", "rating", "popularity", "time", "premium"]; // ✅ NEW
+
 const handleGetSearchRecipe = async (req, res, next) => {
     try {
-        const { search, cuisine, diet, rating, priceMin, priceMax } = req.query;
+        const { query, cuisine, diet, rating, priceMin, priceMax, sort } = req.query;
 
-        // const page = Number(req.query.page) || 1;
-        const limit = Number(req.query.limit) || 10;
-        // const skip = (page - 1) * limit;
+        const page = Number(req.query.page) || 1;
+        const limit = Number(req.query.limit) || 12;
+        const skip = (page - 1) * limit;
 
         const pipeline = [];
 
-        // Search
-        if (search) {
+        // ================= SEARCH =================
+        if (query) {
             pipeline.push({
                 $match: {
                     $or: [
-                        { title: { $regex: search, $options: "i" } },
-                        { description: { $regex: search, $options: "i" } },
+                        { title: { $regex: query, $options: "i" } },
+                        { description: { $regex: query, $options: "i" } },
+                        {
+                            "steps.instruction": {
+                                $regex: query,
+                                $options: "i",
+                            },
+                        },
                     ],
                 },
             });
         }
 
-        // Cuisine
+        // CUISINE
         if (cuisine) {
             pipeline.push({
                 $match: { cuisine },
             });
         }
 
-        // Dietary Labels
+        // DIET
         if (diet) {
-            // handling mulitple dietry labels (vegan,keto, vegetarian)
             const dietArray = diet
                 .split(",")
                 .map((d) => d.trim())
@@ -818,9 +825,10 @@ const handleGetSearchRecipe = async (req, res, next) => {
             }
         }
 
-        // Add Average Rating
+        // RATING FILTER
+        let isAvgRatingComputed = false;
+
         if (rating) {
-            // calculating average rating from all the reviews
             pipeline.push({
                 $addFields: {
                     avgRating: {
@@ -829,7 +837,8 @@ const handleGetSearchRecipe = async (req, res, next) => {
                 },
             });
 
-            // filtering by rating and average rating
+            isAvgRatingComputed = true;
+
             const ratingNum = Number(rating);
             if (!isNaN(ratingNum)) {
                 pipeline.push({
@@ -840,7 +849,7 @@ const handleGetSearchRecipe = async (req, res, next) => {
             }
         }
 
-        // Calculate Total Recipe Cost (ONLY SUM marketPrice)
+        // PRICE FILTER
         if (priceMin || priceMax) {
             pipeline.push({
                 $addFields: {
@@ -863,7 +872,6 @@ const handleGetSearchRecipe = async (req, res, next) => {
             if (!isNaN(min)) priceQuery.$gte = min;
             if (!isNaN(max)) priceQuery.$lte = max;
 
-            // filtering on the basis of totalCost 
             if (Object.keys(priceQuery).length > 0) {
                 pipeline.push({
                     $match: {
@@ -873,18 +881,83 @@ const handleGetSearchRecipe = async (req, res, next) => {
             }
         }
 
-        // Pagination
+        // ================= SORTING =================
+        let sortStage = {}; 
+
+        // Default / Relevance
+        if (!sort || sort === "relevance") {
+            sortStage = { createdAt: -1 }; // newest first
+        }
+
+        // Highest Rated
+        if (sort === "rating") {
+            // avoid duplicate avgRating computation
+            if (!isAvgRatingComputed) {
+                pipeline.push({
+                    $addFields: {
+                        avgRating: {
+                            $ifNull: [{ $avg: "$reviews.rating" }, 0],
+                        },
+                    },
+                });
+            }
+
+            sortStage = { avgRating: -1 };
+        }
+
+        // Most Popular (likes count)
+        if (sort === "popularity") {
+            pipeline.push({
+                $addFields: {
+                    likesCount: {
+                        $size: { $ifNull: ["$likeCount", []] },
+                    },
+                },
+            });
+
+            sortStage = { likesCount: -1 };
+        }
+
+        // Quickest Recipes
+        if (sort === "time") {
+            sortStage = { totalCookingTime: 1 };
+        }
+
+        // Premium First
+        if (sort === "premium") {
+            sortStage = { isPremium: -1 };
+        }
+
+        // apply sorting
+        if (Object.keys(sortStage).length > 0) {
+            pipeline.push({
+                $sort: sortStage,
+            });
+        }
+
+        // ================= PAGINATION =================
         pipeline.push({
             $facet: {
-                data: [{ $limit: limit }],
+                data: [{ $skip: skip }, { $limit: limit }],
                 totalCount: [{ $count: "count" }],
             },
         });
 
-        const recipes = await Recipe.aggregate(pipeline);
+        const result = await Recipe.aggregate(pipeline);
+
+        const recipes = result[0]?.data || [];
+        const total = result[0]?.totalCount[0]?.count || 0;
 
         res.status(200).json(
-            new ApiResponse(200, "Search results fetched", recipes)
+            new ApiResponse(200, "Recipes fetched successfully", {
+                recipes,
+                meta: {
+                    total,
+                    page,
+                    limit,
+                    totalPages: Math.ceil(total / limit),
+                },
+            })
         );
     } catch (error) {
         console.log("Error while searching for recipes:", error);
@@ -893,12 +966,11 @@ const handleGetSearchRecipe = async (req, res, next) => {
                 ? error
                 : new ApiError(
                       500,
-                      "Something went wrong while searching recipes."
+                      "Something went wrong while searching for recipes."
                   )
         );
     }
 };
-
 export {
     addRecipe,
     getAllRecipes,
