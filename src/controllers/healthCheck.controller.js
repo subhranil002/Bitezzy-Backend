@@ -4,16 +4,16 @@ import sendMail from "../utils/sendMail.js";
 
 export const handleHealthCheck = async (req, res) => {
     // send mail
-    try {
-        // const resp = await sendMail(
-        //     "afnanansari02@gmail.com",
-        //     "Health Check",
-        //     "<h1>Mail is working. Sent through bitezzy server</h1>"
-        // );
-        console.log("Mail sent successful", resp);
-    } catch (error) {
-        console.log("Error sending mail:", error);
-    }
+    // try {
+    //     // const resp = await sendMail(
+    //     //     "afnanansari02@gmail.com",
+    //     //     "Health Check",
+    //     //     "<h1>Mail is working. Sent through bitezzy server</h1>"
+    //     // );
+    //     console.log("Mail sent successful", resp);
+    // } catch (error) {
+    //     console.log("Error sending mail:", error);
+    // }
 
     return res
         .status(200)
