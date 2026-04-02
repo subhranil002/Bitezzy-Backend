@@ -3,7 +3,7 @@
 
 **Intelligent Recipe Platform with Cost & Nutrition Insights**
 ## Backend URL
-https://api.bitebot.site/
+https://api.bitezzy.store/
 
 ## End Points
 - Health Check Route -> /api/test
