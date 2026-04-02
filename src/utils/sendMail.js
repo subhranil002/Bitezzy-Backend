@@ -15,7 +15,7 @@ const base64UrlEncode = (str) => {
 
 // NEW: Helper to manually build the email structure (MIME standards)
 // We need this because we aren't using Nodemailer's build engine anymore.
-const buildEmail = (to, subject, html, from = `Bitebot <${constants.AUTHORIZE_MAIL}>`) => {
+const buildEmail = (to, subject, html, from = `Bitezzy <${constants.AUTHORIZE_MAIL}>`) => {
   // RFC 2822 standard requires \r\n for line breaks in headers
   return [
     `From: ${from}`,

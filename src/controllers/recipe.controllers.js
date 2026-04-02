@@ -772,11 +772,18 @@ const handleUnlikeRecipe = async (req, res, next) => {
     }
 };
 
-// export const SORT_OPTIONS = ["relevance", "rating", "popularity", "time", "premium"]; // ✅ NEW
-
 const handleGetSearchRecipe = async (req, res, next) => {
     try {
-        const { query, cuisine, diet, rating, priceMin, priceMax, sort } = req.query;
+        const {
+            query,
+            cuisine,
+            diet,
+            rating,
+            priceMin,
+            priceMax,
+            sort,
+            premium,
+        } = req.query;
 
         const page = Number(req.query.page) || 1;
         const limit = Number(req.query.limit) || 12;
@@ -881,8 +888,16 @@ const handleGetSearchRecipe = async (req, res, next) => {
             }
         }
 
+        if (premium === "true") {
+            pipeline.push({
+                $match: {
+                    isPremium: premium === "true",
+                },
+            });
+        }
+
         // ================= SORTING =================
-        let sortStage = {}; 
+        let sortStage = {};
 
         // Default / Relevance
         if (!sort || sort === "relevance") {
@@ -938,7 +953,25 @@ const handleGetSearchRecipe = async (req, res, next) => {
         // ================= PAGINATION =================
         pipeline.push({
             $facet: {
-                data: [{ $skip: skip }, { $limit: limit }],
+                data: [
+                    { $skip: skip },
+                    { $limit: limit },
+                    {
+                        $project: {
+                            _id: 1,
+                            title: 1,
+                            description: 1,
+                            "thumbnail.secure_url": 1,
+                            chefId: 1,
+                            isPremium: 1,
+                            servings: 1,
+                            cuisine: 1,
+                            dietaryLabels: 1,
+                            likeCount: 1,
+                            // totalCookingTime: 1,
+                        },
+                    },
+                ],
                 totalCount: [{ $count: "count" }],
             },
         });
