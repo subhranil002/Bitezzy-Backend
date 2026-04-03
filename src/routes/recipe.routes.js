@@ -46,7 +46,7 @@ recipeRoutes.route("/quick").get(HandleGetQuickRecipes);
 recipeRoutes.route("/premium").get(HandleGetPremiumRecipes);
 recipeRoutes.route("/recommended").get(isLoggedIn, HandleGetRecommendedRecipes);
 
-recipeRoutes.route("/search").get(isLoggedIn, handleGetSearchRecipe);
+recipeRoutes.route("/search").get(handleGetSearchRecipe);
 recipeRoutes.route("/like/:id").get(isLoggedIn, handleLikeRecipe);
 recipeRoutes.route("/unlike/:id").get(isLoggedIn, handleUnlikeRecipe);
 

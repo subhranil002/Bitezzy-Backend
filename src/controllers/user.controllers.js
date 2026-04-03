@@ -142,7 +142,7 @@ export const handleLogin = async (req, res, next) => {
         }
 
         // validate if user exists
-        let user = await User.findOne({ email })
+        let user = await User.findOne({ email, isActive: true })
             .select("+password")
             .populate("profile.subscribed")
             .populate("chefProfile.recipes");
@@ -349,7 +349,7 @@ export const handleForgetPassword = async (req, res, next) => {
             throw new ApiError(400, "Email is required");
         }
 
-        const user = await User.findOne({ email });
+        const user = await User.findOne({ email, isActive: true });
         if (!user) {
             throw new ApiError(400, "User not found with this mail");
         }
@@ -450,7 +450,10 @@ export const handleResetPassword = async (req, res, next) => {
 
 export const handleGetProfile = async (req, res, next) => {
     try {
-        const user = await User.findById(req.user._id)
+        const user = await User.findOne({
+            _id: req.user._id,
+            isActive: true,
+        })
             .populate("profile.subscribed")
             .populate("chefProfile.recipes");
 
@@ -515,8 +518,8 @@ export const handleUpdateProfile = async (req, res, next) => {
             throw new ApiError(400, "No valid fields provided for update");
         }
 
-        const updatedUser = await User.findByIdAndUpdate(
-            user._id,
+        const updatedUser = await User.findOneAndUpdate(
+            { _id: user._id, isActive: true },
             { $set: updates },
             { new: true, runValidators: true }
         );
@@ -525,10 +528,11 @@ export const handleUpdateProfile = async (req, res, next) => {
             throw new ApiError(404, "User not found");
         }
 
-        return res.status(200).json(
-            new ApiResponse(200, "User updated successfully", updatedUser)
-        );
-
+        return res
+            .status(200)
+            .json(
+                new ApiResponse(200, "User updated successfully", updatedUser)
+            );
     } catch (error) {
         if (error instanceof ApiError) {
             return next(error);
@@ -543,7 +547,10 @@ export const handleGetUserById = async (req, res, next) => {
 
         // populate function: Instead of just giving the ObjectId, replace it with the actual document from the referenced collection.
         // This is useful when you want to retrieve a document from a referenced collection and include its fields.
-        const user = await User.findById(userId)
+        const user = await User.findOne({
+            _id: userId,
+            isActive: true,
+        })
             .populate("profile.subscribed")
             .populate("chefProfile.recipes");
 
@@ -605,7 +612,10 @@ export const handleContactus = async (req, res, next) => {
 
 export const handleGetFavourites = async (req, res, next) => {
     try {
-        const user = await User.findById(req.user._id).populate("favourites");
+        const user = await User.findOne({
+            _id: req.user._id,
+            isActive: true,
+        }).populate("favourites");
 
         return res
             .status(200)
@@ -640,8 +650,8 @@ export const handleSubscribeToChef = async (req, res, next) => {
             throw new ApiError(400, "You cannot subscribe to yourself");
         }
 
-        const user = await User.findById(userId);
-        const chef = await User.findById(chefId);
+        const user = await User.findOne({ _id: userId, isActive: true });
+        const chef = await User.findOne({ _id: chefId, isActive: true });
 
         if (!chef || chef.role !== "CHEF") {
             throw new ApiError(404, "Chef not found");
@@ -685,8 +695,8 @@ export const handleUnsubscribeFromChef = async (req, res, next) => {
         const { chefId } = req.params;
         const userId = req.user._id;
 
-        const user = await User.findById(userId);
-        const chef = await User.findById(chefId);
+        const user = await User.findOne({ _id: userId, isActive: true });
+        const chef = await User.findOne({ _id: chefId, isActive: true });
 
         if (!chef || chef.role !== "CHEF") {
             throw new ApiError(404, "Chef not found");

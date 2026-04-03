@@ -136,7 +136,7 @@ const addRecipe = async (req, res, next) => {
     }
 };
 
-// READ All Recipes (Not in used)
+// READ All Recipes (Not in use)
 const getAllRecipes = async (req, res, next) => {
     try {
         const startIndex = parseInt(req.query.startIndex) || 0;
@@ -315,7 +315,10 @@ const getAllRecipes = async (req, res, next) => {
 // READ Single Recipe (OK)
 const getRecipeById = async (req, res, next) => {
     try {
-        const recipe = await Recipe.findById(req.params.id).populate("chefId");
+        const recipe = await Recipe.findOne({
+            _id: req.params.id,
+            isActive: true,
+        }).populate("chefId");
 
         if (!recipe) {
             throw new ApiError(404, "Recipe not found");
@@ -389,10 +392,15 @@ const getRecipeById = async (req, res, next) => {
 
 const updateRecipe = async (req, res, next) => {
     try {
-        const recipe = await Recipe.findByIdAndUpdate(req.params.id, req.body, {
-            new: true,
-            runValidators: true,
-        });
+        const recipe = await Recipe.findOneAndUpdate(
+            { _id: req.params.id, isActive: true },
+            req.body,
+            {
+                new: true,
+                runValidators: true,
+            }
+        );
+
         if (!recipe) {
             throw new ApiError(404, "Recipe not found");
         }
@@ -416,7 +424,12 @@ const updateRecipe = async (req, res, next) => {
 
 const deleteRecipe = async (req, res, next) => {
     try {
-        const recipe = await Recipe.findByIdAndDelete(req.params.id);
+        const recipe = await Recipe.findOneAndUpdate(
+            { _id: req.params.id, isActive: true },
+            { $set: { isActive: false } },
+            { new: true }
+        );
+
         if (!recipe) {
             throw new ApiError(404, "Recipe not found");
         }
@@ -452,6 +465,13 @@ const HandleGetTrendingRecipes = async (req, res, next) => {
             //     },
             // },
 
+            // Consider only active recipes
+            {
+                $match: {
+                    isActive: true,
+                },
+            },
+
             // Compute like count
             {
                 $addFields: {
@@ -464,6 +484,21 @@ const HandleGetTrendingRecipes = async (req, res, next) => {
 
             // Limit to 10
             { $limit: limit },
+
+            {
+                $project: {
+                    _id: 1,
+                    title: 1,
+                    description: 1,
+                    "thumbnail.secure_url": 1,
+                    chefId: 1,
+                    isPremium: 1,
+                    servings: 1,
+                    cuisine: 1,
+                    dietaryLabels: 1,
+                    likeCount: 1,
+                },
+            },
         ]);
         // console.log(likeCountTotal);
         // console.log(trendingRecipes);
@@ -495,10 +530,32 @@ const HandleGetFreshRecipes = async (req, res, next) => {
         const limit = Number(req.query.limit) || 10;
 
         const freshRecipes = await Recipe.aggregate([
+            // Consider only active recipes
             {
-                $sort: { createdAt: -1 }, // newest first
+                $match: {
+                    isActive: true,
+                },
             },
-            { $limit: limit },
+            {
+                $sort: { createdAt: -1 },
+            },
+            {
+                $limit: limit,
+            },
+            {
+                $project: {
+                    _id: 1,
+                    title: 1,
+                    description: 1,
+                    "thumbnail.secure_url": 1,
+                    chefId: 1,
+                    isPremium: 1,
+                    servings: 1,
+                    cuisine: 1,
+                    dietaryLabels: 1,
+                    likeCount: 1,
+                },
+            },
         ]);
 
         return res
@@ -539,7 +596,31 @@ const HandleGetQuickRecipes = async (req, res, next) => {
             });
         }
 
-        pipeline.push({ $sort: { totalCookingTime: 1 } }, { $limit: limit });
+        pipeline.push(
+            // Consider only active recipes
+            {
+                $match: {
+                    isActive: true,
+                },
+            },
+            { $sort: { totalCookingTime: 1 } },
+            { $limit: limit },
+            {
+                $project: {
+                    _id: 1,
+                    title: 1,
+                    description: 1,
+                    "thumbnail.secure_url": 1,
+                    chefId: 1,
+                    isPremium: 1,
+                    servings: 1,
+                    cuisine: 1,
+                    dietaryLabels: 1,
+                    likeCount: 1,
+                    // totalCookingTime: 1,
+                },
+            }
+        );
 
         const quickRecipes = await Recipe.aggregate(pipeline);
 
@@ -575,9 +656,25 @@ const HandleGetPremiumRecipes = async (req, res, next) => {
             {
                 $match: {
                     isPremium: true,
+                    isActive: true,
                 },
             },
             { $limit: limit },
+            {
+                $project: {
+                    _id: 1,
+                    title: 1,
+                    description: 1,
+                    "thumbnail.secure_url": 1,
+                    chefId: 1,
+                    isPremium: 1,
+                    servings: 1,
+                    cuisine: 1,
+                    dietaryLabels: 1,
+                    likeCount: 1,
+                    // totalCookingTime: 1,
+                },
+            },
         ]);
 
         return res
@@ -620,7 +717,9 @@ const HandleGetRecommendedRecipes = async (req, res, next) => {
         const { cuisine, dietaryLabels } = user.profile || {};
 
         // Create an empty filter object that we’ll fill dynamically
-        const matchStage = {};
+        const matchStage = {
+            isActive: true,
+        };
 
         // If user has a preferred cuisine, we match recipes by cuisine name.
         // Using regex makes it case-insensitive and allows partial matches.
@@ -650,6 +749,22 @@ const HandleGetRecommendedRecipes = async (req, res, next) => {
 
             // Step 3: Limit results to a certain number (for performance)
             { $limit: limit },
+
+            {
+                $project: {
+                    _id: 1,
+                    title: 1,
+                    description: 1,
+                    "thumbnail.secure_url": 1,
+                    chefId: 1,
+                    isPremium: 1,
+                    servings: 1,
+                    cuisine: 1,
+                    dietaryLabels: 1,
+                    likeCount: 1,
+                    // totalCookingTime: 1,
+                },
+            },
         ]);
 
         // Send success response
