@@ -160,7 +160,10 @@ const recipeSchema = new mongoose.Schema(
             default: true,
         },
     },
-    { timestamps: true }
+    {
+        timestamps: true,
+        strict: true, // Ignores fields not defined in schema
+    }
 );
 
 const Recipe = mongoose.model("Recipe", recipeSchema);

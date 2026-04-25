@@ -322,7 +322,10 @@ const userSchema = new mongoose.Schema(
             default: true,
         },
     },
-    { timestamps: true }
+    {
+        timestamps: true,
+        strict: true, // Ignores fields not defined in schema
+    }
 );
 
 // mongoDB hook

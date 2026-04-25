@@ -110,7 +110,7 @@ export const handleRegister = async (req, res, next) => {
         // send welcome email
         await sendMail(
             newUser.email,
-            "Welcome to BiteBot",
+            "Welcome to Bitezzy",
             welcomeTemplate({ name: newUser.profile.name })
         );
 
@@ -591,7 +591,7 @@ export const handleContactus = async (req, res, next) => {
         // send confirm mail to user
         await sendMail(
             email,
-            "BiteBot: New Contact Us Submission",
+            "Bitezzy: New Contact Us Submission",
             contactUsAutoReplyTemplate({ name: profile.name })
         );
 

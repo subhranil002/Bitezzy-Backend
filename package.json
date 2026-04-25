@@ -1,17 +1,17 @@
 {
-  "name": "bitebotbackend",
+  "name": "bitezzy",
   "version": "1.0.0",
   "description": "**Intelligent Recipe Platform with Cost & Nutrition Insights**",
-  "homepage": "https://github.com/wasiqAfnan/BiteBotBackend#readme",
+  "homepage": "https://github.com/wasiqAfnan/BitezzyBackend#readme",
   "bugs": {
-    "url": "https://github.com/wasiqAfnan/BiteBotBackend/issues"
+    "url": "https://github.com/wasiqAfnan/BitezzyBackend/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/wasiqAfnan/BiteBotBackend.git"
+    "url": "git+https://github.com/wasiqAfnan/BitezzyBackend.git"
   },
   "license": "GPL-3.0",
-  "author": "BiteBitTeam",
+  "author": "BitezzyTeam",
   "type": "module",
   "main": "index.js",
   "scripts": {
