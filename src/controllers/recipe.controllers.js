@@ -1,11 +1,8 @@
 import Recipe from "../models/recipe.models.js";
-import {
-    ApiResponse,
-    ApiError,
-    uploadImageToCloud,
-    deleteLocalFiles,
-} from "../utils/index.js";
+import { ApiResponse, ApiError } from "../utils/index.js";
 import User from "../models/user.models.js";
+import { similaritySearch } from "../services/vectorService.js";
+import { recipeQueue } from "../configs/queue.config.js";
 
 // CREATE Recipe
 const addRecipe = async (req, res, next) => {
@@ -13,42 +10,20 @@ const addRecipe = async (req, res, next) => {
         /** ============================
          * 1️⃣ Extract files
          * ============================ */
-        // const thumbnailFile = req.files?.thumbnailFile?.[0] || null;
-        // const stepImagesFiles = req.files?.stepImages || [];
         const thumbnailFile = req.files?.thumbnailFile?.[0];
         const stepImagesFiles = req.files?.stepImages || [];
-        // console.log("Got files : ", thumbnailFile, stepImagesFiles);
 
         /** ============================
-         * 2️⃣ Extract sanitized body
+         * 2️⃣ Validate images
          * ============================ */
-        const {
-            title,
-            description,
-            ingredients,
-            steps, // [{ stepNo, instruction }]
-            cuisine,
-            dietaryLabels,
-            totalCookingTime,
-            servings,
-            externalMediaLinks,
-            isPremium,
-        } = req.body;
-
-        /** ============================
-         * 3️⃣ Validate images
-         * ============================ */
-
         // Thumbnail validation
         if (!thumbnailFile) {
             throw new ApiError(400, "Thumbnail image is required");
         }
-
         // Steps images validation
         if (stepImagesFiles.length === 0) {
             throw new ApiError(400, "Step images are required");
         }
-
         // Match step count with image count
         if (stepImagesFiles.length !== steps.length) {
             throw new ApiError(
@@ -57,82 +32,40 @@ const addRecipe = async (req, res, next) => {
             );
         }
 
-        /** ============================
-         * 4️⃣ Upload Thumbnail
-         * ============================ */
-        const uploadedThumb = await uploadImageToCloud(
-            thumbnailFile.path,
-            "RECIPES"
+        /**
+         * ============================
+         * 3️⃣ Add recipe to queue
+         * ============================
+         */
+        await recipeQueue.add(
+            "recipe-queue",
+            {
+                type: "ADD",
+                data: req.body,
+                files: {
+                    thumbnail: thumbnailFile.path,
+                    steps: stepImagesFiles.map((f) => f.path),
+                },
+                userId: req.user._id.toString(),
+            },
+            { removeOnComplete: true, removeOnFail: true }
         );
 
-        const thumbnail = {
-            public_id: uploadedThumb.public_id,
-            secure_url: uploadedThumb.secure_url,
-        };
-
-        /** ============================
-         * 5️⃣ Upload Step Images
-         * ============================ */
-        const uploadedSteps = [];
-
-        for (const file of stepImagesFiles) {
-            const result = await uploadImageToCloud(file.path, "RECIPES");
-            uploadedSteps.push(result);
-        }
-
-        await deleteLocalFiles();
-        // console.log("File cleanup Success");
-
-        /** ============================
-         * 6️⃣ Merge steps + image URLs
-         * ============================ */
-        const finalSteps = steps.map((stepObj, index) => ({
-            stepNo: stepObj.stepNo,
-            instruction: stepObj.instruction,
-            imageUrl: {
-                public_id: uploadedSteps[index].public_id,
-                secure_url: uploadedSteps[index].secure_url,
-            },
-        }));
-
-        /** ============================
-         * 7️⃣ Build recipe payload
-         * ============================ */
-        const recipeData = {
-            title,
-            description,
-            ingredients,
-            steps: finalSteps,
-            cuisine,
-            dietaryLabels: dietaryLabels || [],
-            totalCookingTime,
-            servings,
-            externalMediaLinks: externalMediaLinks || [],
-            isPremium,
-            thumbnail,
-            chefId: req.user?._id,
-        };
-
-        /** ============================
-         * 8️⃣ Save recipe
-         * ============================ */
-        const recipe = await Recipe.create(recipeData);
-
+        /**
+         * ============================
+         * 4️⃣ Return immediately
+         * ============================
+         */
         return res
-            .status(201)
-            .json(new ApiResponse(201, "Recipe created successfully", recipe));
-    } catch (error) {
-        await deleteLocalFiles();
-        console.log("Some Error Occured: ", error);
-
-        error instanceof ApiError
-            ? next(error)
-            : next(
-                  new ApiError(
-                      500,
-                      "Something went wrong during recipe creation"
-                  )
-              );
+            .status(202)
+            .json(
+                new ApiResponse(
+                    202,
+                    "Recipe is being processed and will be available soon"
+                )
+            );
+    } catch (err) {
+        next(err);
     }
 };
 
@@ -400,10 +333,18 @@ const updateRecipe = async (req, res, next) => {
                 runValidators: true,
             }
         );
-
         if (!recipe) {
             throw new ApiError(404, "Recipe not found");
         }
+
+        await recipeQueue.add(
+            "recipe-queue",
+            {
+                type: "UPDATE",
+                recipeId: id,
+            },
+            { removeOnComplete: true, removeOnFail: true }
+        );
 
         return res
             .status(200)
@@ -429,10 +370,18 @@ const deleteRecipe = async (req, res, next) => {
             { $set: { isActive: false } },
             { new: true }
         );
-
         if (!recipe) {
             throw new ApiError(404, "Recipe not found");
         }
+
+        await recipeQueue.add(
+            "recipe-queue",
+            {
+                type: "DELETE",
+                recipeId: id,
+            },
+            { removeOnComplete: true, removeOnFail: true }
+        );
 
         return res
             .status(200)
@@ -525,6 +474,7 @@ const HandleGetTrendingRecipes = async (req, res, next) => {
         );
     }
 };
+
 const HandleGetFreshRecipes = async (req, res, next) => {
     try {
         const limit = Number(req.query.limit) || 10;
@@ -580,6 +530,7 @@ const HandleGetFreshRecipes = async (req, res, next) => {
         );
     }
 };
+
 const HandleGetQuickRecipes = async (req, res, next) => {
     try {
         const limit = Number(req.query.limit) || 10;
@@ -648,6 +599,7 @@ const HandleGetQuickRecipes = async (req, res, next) => {
         );
     }
 };
+
 const HandleGetPremiumRecipes = async (req, res, next) => {
     try {
         const limit = Number(req.query.limit) || 10;
@@ -699,73 +651,35 @@ const HandleGetPremiumRecipes = async (req, res, next) => {
         );
     }
 };
+
 const HandleGetRecommendedRecipes = async (req, res, next) => {
     try {
-        // Get the logged-in user's ID from auth middleware
-        const userId = req.user?._id;
+        const { limit = 10 } = req.query;
 
-        // Find the user in DB to access their preferences
-        const user = await User.findById(userId)
-            .select("profile.cuisine profile.dietaryLabels")
-            .lean();
+        // Get the logged-in user's preferences
+        const { cuisine, dietaryLabels } = req?.user?.profile || {};
+        const { cuisineSuggested, dietaryLabelsSuggested } = req?.user || {};
 
-        if (!user) {
-            return next(new ApiError(404, "User not found"));
-        }
+        // flatten + merge
+        const allCuisines = [cuisine, ...(cuisineSuggested || [])].filter(
+            Boolean
+        );
+        const allDietary = [
+            ...(dietaryLabels || []),
+            ...(dietaryLabelsSuggested?.flat() || []),
+        ].filter(Boolean);
 
-        // Extract preferred cuisine and dietary labels from user profile
-        const { cuisine, dietaryLabels } = user.profile || {};
+        // build a single semantic search query string and exclude duplicates
+        const searchQuery =
+            [...new Set(allCuisines), ...new Set(allDietary)].join(" ") ||
+            "Popular";
 
-        // Create an empty filter object that we’ll fill dynamically
-        const matchStage = {
-            isActive: true,
-        };
-
-        // If user has a preferred cuisine, we match recipes by cuisine name.
-        // Using regex makes it case-insensitive and allows partial matches.
-        if (cuisine) {
-            matchStage.cuisine = { $regex: new RegExp(cuisine, "i") };
-        }
-
-        // If user has dietary preferences, we use $in to find recipes
-        // that contain any of those dietary labels.
-        if (dietaryLabels && dietaryLabels.length > 0) {
-            matchStage.dietaryLabels = { $in: dietaryLabels };
-        }
-
-        // Limit the number of recipes returned (default 10)
-        const limit = Number(req.query.limit) || 10;
-
-        // console.log("MatchStage: ", matchStage);
-        // console.log("Uyser pref: ", cuisine, dietaryLabels);
-
-        // The aggregation pipeline starts here
-        const recommendedRecipes = await Recipe.aggregate([
-            // Step 1: Filter recipes based on user's preferences (cuisine/dietary)
-            { $match: matchStage },
-
-            // Step 2: Sort recipes by creation date (latest first)
-            { $sort: { createdAt: -1 } },
-
-            // Step 3: Limit results to a certain number (for performance)
-            { $limit: limit },
-
-            {
-                $project: {
-                    _id: 1,
-                    title: 1,
-                    description: 1,
-                    "thumbnail.secure_url": 1,
-                    chefId: 1,
-                    isPremium: 1,
-                    servings: 1,
-                    cuisine: 1,
-                    dietaryLabels: 1,
-                    likeCount: 1,
-                    // totalCookingTime: 1,
-                },
-            },
-        ]);
+        // search for similar recipes
+        const similarRecipes = await similaritySearch(searchQuery, limit);
+        const recipeIds = similarRecipes.map((item) => item.id);
+        const recommendedRecipes = await Recipe.find({
+            _id: { $in: recipeIds },
+        }).select("-ingredients -step -nutrition -reviews -externalMediaLinks");
 
         // Send success response
         return res
@@ -1119,6 +1033,7 @@ const handleGetSearchRecipe = async (req, res, next) => {
         );
     }
 };
+
 export {
     addRecipe,
     getAllRecipes,

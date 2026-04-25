@@ -1,6 +1,7 @@
 import { ApiError, ApiResponse } from "../utils/index.js";
 import mongoose from "mongoose";
 import sendMail from "../utils/sendMail.js";
+import { connection } from "../configs/queue.config.js";
 
 export const handleHealthCheck = async (req, res) => {
     // send mail
@@ -28,5 +29,23 @@ export const handleDbPing = async (req, res) => {
             .json(new ApiResponse(200, "DB is up and running", resp));
     } catch (err) {
         res.status(500).json("DB ping failed");
+    }
+};
+
+export const handleRedisPing = async (req, res) => {
+    try {
+        const response = await connection.ping();
+
+        return res.status(200).json(
+            new ApiResponse(200, "Redis is up and running", {
+                ping: response,
+            })
+        );
+    } catch (error) {
+        return res.status(500).json(
+            new ApiResponse(500, "Redis ping failed", {
+                error: error.message,
+            })
+        );
     }
 };

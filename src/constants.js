@@ -22,6 +22,15 @@ const constants = {
     AUTHORIZE_MAIL: process.env.AUTHORIZE_MAIL,
     RECEIVER_MAIL: process.env.RECEIVER_MAIL,
     GUEST_ID: process.env.GUEST_ID,
+    REDIS_HOST: process.env.REDIS_HOST,
+    REDIS_PORT: process.env.REDIS_PORT,
+    REDIS_USERNAME: process.env.REDIS_USERNAME,
+    REDIS_PASSWORD: process.env.REDIS_PASSWORD,
+    QDRANT_URL: process.env.QDRANT_URL,
+    QDRANT_API_KEY: process.env.QDRANT_API_KEY,
+    QDRANT_COLLECTION_NAME: process.env.QDRANT_COLLECTION_NAME,
+    QDRANT_VECTOR_DIMENSIONS: process.env.QDRANT_VECTOR_DIMENSIONS,
+    OPENAI_EMBEDDING_MODEL: process.env.OPENAI_EMBEDDING_MODEL,
 };
 
 export default constants;
