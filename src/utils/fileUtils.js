@@ -1,10 +1,16 @@
 import { v2 as cloudinary } from "cloudinary";
-// import cloudinary from "../configs/cloudinary.configs.js";
 import fs from "fs";
 import path from "path";
 import constants from "../constants.js";
 import { ApiError } from "./index.js";
 import { fileURLToPath } from "url";
+import "dotenv/config";
+
+cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_SECRET,
+});
 
 // in use
 export const deleteLocalFile = async (localFilePath) => {
@@ -142,27 +148,24 @@ export const uploadImageToCloud = async (localFilePath) => {
 */
 
 // subhra's way(Not currently used)
- export const deleteLocalFiles = async () => {
-//     try {
-//         const tempDir = path.join(
-//             path.dirname(fileURLToPath(import.meta.url)),
-//             "../../public/temp"
-//         );
-
-//         if (fs.existsSync(tempDir)) {
-//             const files = await fs.promises.readdir(tempDir);
-
-//             await Promise.all(
-//                 files.map(async (file) => {
-//                     if (file !== ".gitkeep") {
-//                         const filePath = path.join(tempDir, file);
-//                         await fs.promises.unlink(filePath);
-//                     }
-//                 })
-//             );
-//         }
-//     } catch (error) {
-//         throw new ApiError("Error while deleting local files", 500);
-//     }
+export const deleteLocalFiles = async () => {
+    //     try {
+    //         const tempDir = path.join(
+    //             path.dirname(fileURLToPath(import.meta.url)),
+    //             "../../public/temp"
+    //         );
+    //         if (fs.existsSync(tempDir)) {
+    //             const files = await fs.promises.readdir(tempDir);
+    //             await Promise.all(
+    //                 files.map(async (file) => {
+    //                     if (file !== ".gitkeep") {
+    //                         const filePath = path.join(tempDir, file);
+    //                         await fs.promises.unlink(filePath);
+    //                     }
+    //                 })
+    //             );
+    //         }
+    //     } catch (error) {
+    //         throw new ApiError("Error while deleting local files", 500);
+    //     }
 };
-

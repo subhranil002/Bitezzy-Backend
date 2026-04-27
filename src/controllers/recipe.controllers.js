@@ -3,6 +3,7 @@ import { ApiResponse, ApiError } from "../utils/index.js";
 import User from "../models/user.models.js";
 import { similaritySearch } from "../services/vectorService.js";
 import { recipeQueue } from "../configs/queue.config.js";
+import { uuid } from "zod/v4";
 
 // CREATE Recipe
 const addRecipe = async (req, res, next) => {
@@ -25,7 +26,7 @@ const addRecipe = async (req, res, next) => {
             throw new ApiError(400, "Step images are required");
         }
         // Match step count with image count
-        if (stepImagesFiles.length !== steps.length) {
+        if (stepImagesFiles.length !== req.body.steps.length) {
             throw new ApiError(
                 400,
                 `Mismatch: Expected ${steps.length} step images, received ${stepImagesFiles.length}`
@@ -341,7 +342,7 @@ const updateRecipe = async (req, res, next) => {
             "recipe-queue",
             {
                 type: "UPDATE",
-                recipeId: id,
+                recipe: recipe,
             },
             { removeOnComplete: true, removeOnFail: true }
         );
@@ -378,7 +379,7 @@ const deleteRecipe = async (req, res, next) => {
             "recipe-queue",
             {
                 type: "DELETE",
-                recipeId: id,
+                recipe: recipe,
             },
             { removeOnComplete: true, removeOnFail: true }
         );
@@ -676,10 +677,10 @@ const HandleGetRecommendedRecipes = async (req, res, next) => {
 
         // search for similar recipes
         const similarRecipes = await similaritySearch(searchQuery, limit);
-        const recipeIds = similarRecipes.map((item) => item.id);
+        const uuids = similarRecipes.map((item) => item.id);
         const recommendedRecipes = await Recipe.find({
-            _id: { $in: recipeIds },
-        }).select("-ingredients -step -nutrition -reviews -externalMediaLinks");
+            uuid: { $in: uuids },
+        }).select("-ingredients -steps -nutrition -reviews -externalMediaLinks");
 
         // Send success response
         return res

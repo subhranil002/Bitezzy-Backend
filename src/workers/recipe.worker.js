@@ -1,29 +1,77 @@
-import { Worker } from "bullmq";
-import { ensureCollection } from "../services/vectorService.js";
-import { connection } from "../configs/queue.config.js";
-import { runThread } from "../threads/index.js";
+import { Worker as WorkerThread } from "node:worker_threads";
+import path from "path";
+import { fileURLToPath } from "url";
 
-const bullMQWorker = new Worker(
-    "recipe-queue",
-    async (job) => {
-        const { type } = job.data;
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-        console.log(`🚀📥 Job received | ID: ${job.id} | Type: ${type}`);
+export async function runWorker(job) {
+    const { type, recipe, data, files, userId } = job.data;
 
-        await ensureCollection();
+    switch (type) {
+        case "ADD":
+            await new Promise((resolve, reject) => {
+                const worker = new WorkerThread(
+                    path.join(__dirname, "addRecipe.worker.js"),
+                    {
+                        workerData: { data, files, userId },
+                    }
+                );
 
-        await runThread(job);
-    },
-    { connection }
-);
+                worker.on("error", reject);
+                worker.on("exit", (code) => {
+                    if (code === 0) {
+                        resolve();
+                    } else {
+                        reject(
+                            new Error(`Worker stopped with exit code ${code}`)
+                        );
+                    }
+                });
+            });
+            break;
 
-/**
- * Listen for events
- */
-bullMQWorker.on("completed", (job) => {
-    console.log(`✅🎉 Job completed successfully: ${job.id}`);
-});
+        case "UPDATE":
+            await new Promise((resolve, reject) => {
+                const worker = new WorkerThread(
+                    path.join(__dirname, "updateRecipe.worker.js"),
+                    { workerData: { recipe } }
+                );
 
-bullMQWorker.on("failed", (job, err) => {
-    console.error(`❌💥 Job failed | ID: ${job?.id}`, err);
-});
+                worker.on("error", reject);
+                worker.on("exit", (code) => {
+                    if (code === 0) {
+                        resolve();
+                    } else {
+                        reject(
+                            new Error(`Worker stopped with exit code ${code}`)
+                        );
+                    }
+                });
+            });
+            break;
+
+        case "DELETE":
+            await new Promise((resolve, reject) => {
+                const worker = new WorkerThread(
+                    path.join(__dirname, "deleteRecipe.worker.js"),
+                    { workerData: { recipe } }
+                );
+
+                worker.on("error", reject);
+                worker.on("exit", (code) => {
+                    if (code === 0) {
+                        resolve();
+                    } else {
+                        reject(
+                            new Error(`Worker stopped with exit code ${code}`)
+                        );
+                    }
+                });
+            });
+            break;
+
+        default:
+            throw new Error(`❌ Unknown job type: ${type}`);
+    }
+}

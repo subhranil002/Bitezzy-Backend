@@ -2,6 +2,7 @@ import { ApiError, ApiResponse } from "../utils/index.js";
 import mongoose from "mongoose";
 import sendMail from "../utils/sendMail.js";
 import { connection } from "../configs/queue.config.js";
+import { qdrantClient } from "../services/vectorService.js";
 
 export const handleHealthCheck = async (req, res) => {
     // send mail
@@ -44,6 +45,24 @@ export const handleRedisPing = async (req, res) => {
     } catch (error) {
         return res.status(500).json(
             new ApiResponse(500, "Redis ping failed", {
+                error: error.message,
+            })
+        );
+    }
+};
+
+export const handleQdrantPing = async (req, res) => {
+    try {
+        const response = await qdrantClient.getCollections();
+
+        return res.status(200).json(
+            new ApiResponse(200, "Qdrant is up and running", {
+                health: response,
+            })
+        );
+    } catch (error) {
+        return res.status(500).json(
+            new ApiResponse(500, "Qdrant ping failed", {
                 error: error.message,
             })
         );

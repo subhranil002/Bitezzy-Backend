@@ -6,6 +6,7 @@ export const connection = new IORedis({
     port: process.env.REDIS_PORT,
     username: process.env.REDIS_USERNAME,
     password: process.env.REDIS_PASSWORD,
+    maxRetriesPerRequest: null,
 });
 
 export const recipeQueue = new Queue("recipe-queue", {

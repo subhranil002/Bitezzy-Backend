@@ -1,8 +1,14 @@
-import { qdrantClient } from "../configs/qdrant.config.js";
-import { getEmbedding } from "../utils/getEmbedding.js";
+import { QdrantClient } from "@qdrant/js-client-rest";
+import "dotenv/config";
+
+export const qdrantClient = new QdrantClient({
+    url: process.env.QDRANT_URL,
+    apiKey: process.env.QDRANT_API_KEY,
+});
 
 const COLLECTION = process.env.QDRANT_COLLECTION_NAME;
-const VECTOR_SIZE = process.env.QDRANT_VECTOR_DIMENSIONS;
+const VECTOR_SIZE = process.env.QDRANT_VECTOR_SIZE;
+const VECTOR_DISTANCE = process.env.QDRANT_VECTOR_DISTANCE;
 
 /**
  * Ensure Qdrant collection exists
@@ -19,7 +25,7 @@ export async function ensureCollection() {
         await qdrantClient.createCollection(COLLECTION, {
             vectors: {
                 size: VECTOR_SIZE,
-                distance: "Cosine",
+                distance: VECTOR_DISTANCE,
             },
         });
 
@@ -33,9 +39,9 @@ export async function ensureCollection() {
 /**
  * Upsert vector
  */
-export async function insertVector(id, vector) {
+export async function upsertVector(id, text) {
     try {
-        if (!id || !vector) {
+        if (!id || !text.trim()) {
             throw new Error("Invalid upsert payload");
         }
 
@@ -44,7 +50,13 @@ export async function insertVector(id, vector) {
             points: [
                 {
                     id,
-                    vector,
+                    vector: {
+                        text,
+                        model: process.env.QDRANT_EMBEDDING_MODEL,
+                        options: {
+                            "openai-api-key": process.env.OPENAI_API_KEY,
+                        },
+                    },
                 },
             ],
         });
@@ -82,15 +94,21 @@ export async function similaritySearch(query, limit) {
         if (!query) throw new Error("Query is required");
         if (!limit) throw new Error("Limit is required");
 
-        const vector = await getEmbedding(query);
-
-        const res = await qdrantClient.search(COLLECTION, {
-            vector,
+        const res = await qdrantClient.query(COLLECTION, {
+            query: {
+                text: query,
+                model: process.env.QDRANT_EMBEDDING_MODEL,
+                options: {
+                    "openai-api-key": process.env.OPENAI_API_KEY,
+                },
+            },
             limit,
         });
-
-        console.log(`🔍✨ Search completed | Results: ${res.result.length}`);
-        return res.result;
+        
+        console.log(
+            `🔍✨ Search completed | Results count: ${res.points?.length}`
+        );
+        return res.points;
     } catch (error) {
         console.error("❌🔍 Vector search failed:", error);
         throw error;

@@ -2,6 +2,12 @@ import mongoose from "mongoose";
 
 const recipeSchema = new mongoose.Schema(
     {
+        uuid: {
+            type: String,
+            required: [true, "UUID is required"],
+            index: true,
+        },
+        
         title: {
             type: String,
             required: [true, "Title is required"],
