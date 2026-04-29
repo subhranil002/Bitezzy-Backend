@@ -9,11 +9,10 @@ export const thumbnailSchema = z.object({
 export const recipesSchema = z.array(
     z
         .object({
-            _id: z.string(),
+            _id: z.preprocess((val) => val?.toString(), z.string()),
             title: z.string(),
             cuisine: z.string(),
             thumbnail: thumbnailSchema,
-            score: z.number().optional(),
         })
         .strip()
 );

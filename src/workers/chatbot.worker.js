@@ -7,10 +7,7 @@ import { recipeGraph } from "../ai/graphs/recipe.graph.js";
         const { userInput, toolInUse } = workerData;
 
         // Invoke graph
-        const result = await recipeGraph.invoke(
-            { userInput, toolInUse },
-            { configurable: { thread_id: "1" } }
-        );
+        const result = await recipeGraph.invoke({ userInput, toolInUse });
 
         parentPort?.postMessage({
             reply: result.reply || "",

@@ -10,11 +10,11 @@ import "dotenv/config";
 
 async function addRecipe(data, files, userId) {
     console.log("📤🖼️ Uploading thumbnail...");
-    const thumbnail = await uploadImageToCloud(files.thumbnail);
+    const thumbnail = await uploadImageToCloud(files.thumbnail, "RECIPES");
 
     console.log("📤🧾 Uploading step images...");
     const stepImages = await Promise.all(
-        files.steps.map((file) => uploadImageToCloud(file))
+        files.steps.map((file) => uploadImageToCloud(file, "RECIPES"))
     );
 
     const steps = data.steps.map((step, i) => ({
