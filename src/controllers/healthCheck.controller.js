@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import sendMail from "../utils/sendMail.js";
 import { connection } from "../configs/queue.config.js";
 import { qdrantClient } from "../services/vectorService.js";
+import {connectToCloudinary} from "../utils/index.js"
 
 export const handleHealthCheck = async (req, res) => {
     // send mail
@@ -63,6 +64,21 @@ export const handleQdrantPing = async (req, res) => {
     } catch (error) {
         return res.status(500).json(
             new ApiResponse(500, "Qdrant ping failed", {
+                error: error.message,
+            })
+        );
+    }
+};
+
+export const handleCloudinaryPing = async (req, res) => {
+    try {
+        const response = await connectToCloudinary();
+        return res.status(200).json(
+            new ApiResponse(200, "Cloudinary is up and running")
+        );
+    } catch (error) {
+        return res.status(500).json(
+            new ApiResponse(500, "Cloudinary ping failed", {
                 error: error.message,
             })
         );

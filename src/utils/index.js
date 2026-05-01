@@ -6,6 +6,7 @@ import {
     deleteLocalFiles,
     deleteCloudFile,
 } from "./fileUtils.js"; 
+import { connectToCloudinary } from "./connectCloudinary.js";
 
 // import {
 //     isBlankValue,
@@ -19,6 +20,7 @@ export {
     deleteLocalFile,
     deleteLocalFiles,
     deleteCloudFile,
+    connectToCloudinary
     // isBlankValue,
     // convertToMongoKey
 };

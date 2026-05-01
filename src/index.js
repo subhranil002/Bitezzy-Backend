@@ -1,8 +1,9 @@
 import app from "./app.js";
 import constants from "./constants.js";
 import connectToDb from "./configs/mongoDB.configs.js";
-import connectToCloudinary from "./configs/cloudinary.configs.js";
+import {connectToCloudinary} from "./utils/index.js"
 import "./jobs/recipeQueue.processor.js";
+
 
 const port = constants.PORT || 5000;
 

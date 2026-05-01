@@ -1,5 +1,6 @@
 import { Router } from "express";
 import {
+    handleCloudinaryPing,
     handleDbPing,
     handleHealthCheck,
     handleQdrantPing,
@@ -19,5 +20,8 @@ healthCheckRoutes.route("/redis-ping").get(handleRedisPing);
 
 // qdrant ping route
 healthCheckRoutes.route("/qdrant-ping").get(handleQdrantPing);
+
+// cloudinary ping route
+healthCheckRoutes.route("/cloudinary-ping").get(handleCloudinaryPing);
 
 export default healthCheckRoutes;
