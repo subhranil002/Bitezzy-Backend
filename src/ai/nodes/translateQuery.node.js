@@ -1,5 +1,9 @@
 import { miniModel } from "../models/llm.factory.js";
 import { translatedQuerySchema } from "../schemas/state.schema.js";
+import {
+    SystemMessage,
+} from "@langchain/core/messages";
+import { buildMessageHistory } from "../utils/buildMessageHistory.js";
 
 const translateUserQueryLLM = miniModel.withStructuredOutput(
     translatedQuerySchema,
@@ -9,40 +13,37 @@ const translateUserQueryLLM = miniModel.withStructuredOutput(
     }
 );
 
-const TRANSLATE_QUERY_PROMPT = (userInput) => `
+const TRANSLATE_QUERY_SYSTEM_PROMPT = `
 You are a query normalizer for a cooking assistant search pipeline.
-Your sole job is to rewrite the user's raw input into a clean, search-optimized query.
 
 <rules>
-  1. Preserve the original intent exactly — do not infer, expand, or add details not present.
-  2. Fix spelling and grammatical errors.
-  3. Remove filler words (e.g. "umm", "like", "can you", "I want", "please", "show me").
-  4. Normalize informal or vague phrasing into precise culinary language where possible.
-  5. Output plain text only — no markdown, punctuation, or trailing periods.
+  1. Focus on the user's latest request in the conversation.
+  2. Use previous messages only if needed to resolve follow-ups (e.g. "make it vegetarian", "same but spicy").
+  3. Preserve intent exactly — do NOT add or invent details.
+  4. Remove filler words and normalize into clean, search-friendly terms.
+  5. Keep it short and precise (like a search query).
+  6. Output plain text only — no markdown, punctuation, or trailing periods.
 </rules>
 
 <examples>
-  Input:  "umm can you show me like something with chicken and rice maybe?"
+  Input: "umm can you show me like something with chicken and rice maybe?"
   Output: chicken and rice recipes
 
-  Input:  "i want somthing spicy for dinner tonight"
-  Output: spicy dinner recipes
-
-  Input: "How do I make a chicken curry?"
-  Output: "Chicken curry recipes"
+  Input: "make it vegetarian"
+  Context: previous request was "chicken pasta recipes"
+  Output: vegetarian pasta recipes
 </examples>
-
-<user_input>
-  ${userInput}
-</user_input>
 `;
 
 export async function translateUserQueryNode(state) {
-    const out = await translateUserQueryLLM.invoke(
-        TRANSLATE_QUERY_PROMPT(state.userInput)
-    );
+    const history = buildMessageHistory(state.userInput);
+
+    const out = await translateUserQueryLLM.invoke([
+        new SystemMessage(TRANSLATE_QUERY_SYSTEM_PROMPT),
+        ...history,
+    ]);
 
     return {
-        translatedQuery: out.translatedQuery,
+        translatedQuery: out.translatedQuery?.trim() ?? "",
     };
 }

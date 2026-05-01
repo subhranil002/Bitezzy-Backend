@@ -1,7 +1,14 @@
 import { StateSchema } from "@langchain/langgraph";
 import { z } from "zod";
 
-export const thumbnailSchema = z.object({
+const userInputSchema = z.array(
+    z.object({
+        role: z.enum(["user", "assistant"]),
+        content: z.string().min(1, "Content cannot be empty"),
+    })
+);
+
+const thumbnailSchema = z.object({
     public_id: z.string().default(""),
     secure_url: z.string().default(""),
 });
@@ -17,7 +24,7 @@ export const recipesSchema = z.array(
         .strip()
 );
 
-export const toolInUseSchema = z
+const toolInUseSchema = z
     .object({
         isRecipeSearch: z.boolean().default(false),
         isCookingTip: z.boolean().default(false),
@@ -37,11 +44,11 @@ export const translatedQuerySchema = z.object({
 });
 
 export const State = new StateSchema({
-    userInput: z.string().min(3),
+    userInput: userInputSchema,
     toolInUse: toolInUseSchema,
 
     route: routeSchema.optional(),
-    requestedCount: z.number().int().min(1).max(5).default(5),
+    requestedCount: z.number().int().min(1).max(5).default(0),
 
     translatedQuery: z.string().min(1).optional(),
     recipes: recipesSchema.optional(),
