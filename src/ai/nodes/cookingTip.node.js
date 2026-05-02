@@ -1,11 +1,10 @@
 import { APP_CONTEXT } from "../appContext/prompt.js";
 import { miniModel } from "../models/llm.factory.js";
-import {
-    SystemMessage,
-} from "@langchain/core/messages";
+import { SystemMessage } from "@langchain/core/messages";
 import { buildMessageHistory } from "../utils/buildMessageHistory.js";
+import { getLanguage } from "../utils/getLanguage.js";
 
-const COOKING_TIP_SYSTEM_PROMPT = `
+const COOKING_TIP_SYSTEM_PROMPT = (language) => `
 You are an expert culinary assistant specializing in practical cooking guidance.
 
 <capabilities>
@@ -25,16 +24,20 @@ You are an expert culinary assistant specializing in practical cooking guidance.
   6. Never ask more than one question per response.
   7. If the question is not related to cooking, politely decline and redirect.
   8. Never recommend unsafe food handling practices.
+  9. Use Language:${language} for generating this response.
 </response_rules>
 
 ${APP_CONTEXT}
 `;
 
 export async function cookingTipNode(state) {
-    const history = buildMessageHistory(state.userInput);
+    const history = buildMessageHistory(state.messages);
+    console.log(getLanguage(state.language));
 
     const msg = await miniModel.invoke([
-        new SystemMessage(COOKING_TIP_SYSTEM_PROMPT),
+        new SystemMessage(
+            COOKING_TIP_SYSTEM_PROMPT(getLanguage(state.language))
+        ),
         ...history,
     ]);
 

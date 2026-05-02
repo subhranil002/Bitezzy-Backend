@@ -4,10 +4,14 @@ import { recipeGraph } from "../ai/graphs/recipe.graph.js";
 
 (async () => {
     try {
-        const { userInput, toolInUse } = workerData;
+        const { messages, toolInUse, language } = workerData;
 
         // Invoke graph
-        const result = await recipeGraph.invoke({ userInput, toolInUse });
+        const result = await recipeGraph.invoke({
+            messages,
+            toolInUse,
+            language,
+        });
 
         parentPort?.postMessage({
             reply: result.reply || "",

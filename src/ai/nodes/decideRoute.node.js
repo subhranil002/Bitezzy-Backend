@@ -49,7 +49,7 @@ You are a routing classifier for a cooking assistant.
 
 export async function decideRouteNode(state) {
     const { isRecipeSearch, isCookingTip } = state.toolInUse || {};
-    const history = buildMessageHistory(state.userInput);
+    const history = buildMessageHistory(state.messages);
 
     const out = await routeLLM.invoke([
         new SystemMessage(ROUTE_SYSTEM_PROMPT),

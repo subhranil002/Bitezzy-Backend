@@ -1,12 +1,33 @@
 import { StateSchema } from "@langchain/langgraph";
 import { z } from "zod";
 
-const userInputSchema = z.array(
+const messagesSchema = z.array(
     z.object({
         role: z.enum(["user", "assistant"]),
         content: z.string().min(1, "Content cannot be empty"),
     })
 );
+
+const toolInUseSchema = z
+    .object({
+        isRecipeSearch: z.boolean().default(false),
+        isCookingTip: z.boolean().default(false),
+    })
+    .default({
+        isRecipeSearch: false,
+        isCookingTip: false,
+    });
+
+const languageSchema = z.enum(["en", "hi", "bn"]).default("en");
+
+export const routeSchema = z.object({
+    route: z.enum(["cooking_tip", "recipe_search", "other"]),
+    requestedCount: z.number().int().min(1).max(5),
+});
+
+export const translatedQuerySchema = z.object({
+    translatedQuery: z.string().min(3),
+});
 
 const thumbnailSchema = z.object({
     public_id: z.string().default(""),
@@ -24,28 +45,10 @@ export const recipesSchema = z.array(
         .strip()
 );
 
-const toolInUseSchema = z
-    .object({
-        isRecipeSearch: z.boolean().default(false),
-        isCookingTip: z.boolean().default(false),
-    })
-    .default({
-        isRecipeSearch: false,
-        isCookingTip: false,
-    });
-
-export const routeSchema = z.object({
-    route: z.enum(["cooking_tip", "recipe_search", "other"]),
-    requestedCount: z.number().int().min(1).max(5),
-});
-
-export const translatedQuerySchema = z.object({
-    translatedQuery: z.string().min(3),
-});
-
 export const State = new StateSchema({
-    userInput: userInputSchema,
+    messages: messagesSchema,
     toolInUse: toolInUseSchema,
+    language: languageSchema,
 
     route: routeSchema.optional(),
     requestedCount: z.number().int().min(1).max(5).default(0),

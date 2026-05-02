@@ -1,9 +1,8 @@
 import { APP_CONTEXT } from "../appContext/prompt.js";
 import { miniModel } from "../models/llm.factory.js";
-import {
-    SystemMessage,
-} from "@langchain/core/messages";
+import { SystemMessage } from "@langchain/core/messages";
 import { buildMessageHistory } from "../utils/buildMessageHistory.js";
+import { getLanguage } from "../utils/getLanguage.js";
 
 const buildRecipeContext = (recipes) => {
     const hasRecipes = recipes?.length > 0;
@@ -16,7 +15,7 @@ const buildRecipeContext = (recipes) => {
     });
 };
 
-const DRAFT_REPLY_SYSTEM_PROMPT = (recipes) => `
+const DRAFT_REPLY_SYSTEM_PROMPT = (recipes, language) => `
 You are a friendly recipe recommendation assistant.
 Your job is to write a short, natural reply that presents the fetched recipes to the user.
 
@@ -29,6 +28,7 @@ Your job is to write a short, natural reply that presents the fetched recipes to
   6. Keep the tone warm and conversational.
   7. Do not use markdown, headers, or bold text in the reply.
   8. Ask a follow-up question if the user's request was not clear.
+  9. Use Language:${language} for generating this response.
 </rules>
 
 <fetched_recipes_context>
@@ -39,11 +39,14 @@ ${APP_CONTEXT}
 `;
 
 export async function draftReplyNode(state) {
-    const history = buildMessageHistory(state.userInput);
+    const history = buildMessageHistory(state.messages);
 
     const msg = await miniModel.invoke([
         new SystemMessage(
-            DRAFT_REPLY_SYSTEM_PROMPT(buildRecipeContext(state.recipes))
+            DRAFT_REPLY_SYSTEM_PROMPT(
+                buildRecipeContext(state.recipes),
+                getLanguage(state.language)
+            )
         ),
         ...history,
     ]);

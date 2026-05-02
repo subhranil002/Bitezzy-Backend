@@ -36,7 +36,7 @@ You are a query normalizer for a cooking assistant search pipeline.
 `;
 
 export async function translateUserQueryNode(state) {
-    const history = buildMessageHistory(state.userInput);
+    const history = buildMessageHistory(state.messages);
 
     const out = await translateUserQueryLLM.invoke([
         new SystemMessage(TRANSLATE_QUERY_SYSTEM_PROMPT),

@@ -3,18 +3,19 @@ import { userQueryProcessor } from "../jobs/userQuery.processor.js";
 
 export async function recipeChat(req, res, next) {
     try {
-        const { userInput, toolInUse } = req.body;
+        const { messages, toolInUse, language } = req.body;
 
-        if (!userInput) {
+        if (!messages) {
             throw new ApiError(400, "No user input provided");
         }
 
         const result = await userQueryProcessor({
-            userInput,
+            messages,
             toolInUse: toolInUse ?? {
                 isRecipeSearch: false,
                 isCookingTip: false,
             },
+            language: language ?? "en",
         });
 
         return res.status(200).json(
