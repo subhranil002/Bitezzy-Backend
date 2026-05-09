@@ -680,7 +680,9 @@ const HandleGetRecommendedRecipes = async (req, res, next) => {
         const uuids = similarRecipes.map((item) => item.id);
         const recommendedRecipes = await Recipe.find({
             uuid: { $in: uuids },
-        }).select("-ingredients -steps -nutrition -reviews -externalMediaLinks");
+        }).select(
+            "-ingredients -steps -nutrition -reviews -externalMediaLinks"
+        );
 
         // Send success response
         return res
@@ -820,6 +822,11 @@ const handleGetSearchRecipe = async (req, res, next) => {
         const skip = (page - 1) * limit;
 
         const pipeline = [];
+
+        // ALWAYS filter active recipes
+        pipeline.push({
+            $match: { isActive: true },
+        });
 
         // ================= SEARCH =================
         if (query) {

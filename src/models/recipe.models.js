@@ -156,7 +156,27 @@ const recipeSchema = new mongoose.Schema(
         ],
 
         nutrition: {
-            totalCalories: {
+            calorie: {
+                type: String,
+            },
+        
+            carbohydrate: {
+                type: String,
+            },
+        
+            protein: {
+                type: String,
+            },
+        
+            fat: {
+                type: String,
+            },
+        
+            fiber: {
+                type: String,
+            },
+        
+            sugar: {
                 type: String,
             },
         },
