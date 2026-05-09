@@ -27,7 +27,7 @@ const refreshAccessToken = async (req, res, next) => {
             }
         );
 
-        const user = await User.findById(decodedRefreshToken?._id);
+        const user = await User.findOne({ _id: decodedRefreshToken?._id, isActive: true });
         if (!user) {
             throw new ApiError(455, "User not found");
         }
@@ -96,10 +96,15 @@ export const isLoggedIn = async (req, res, next) => {
                 }
             );
 
-            // Check if user is verified
-            const user = await User.findById(decodedAccessToken?._id);
+            const userId = decodedAccessToken._id;
+
+            let user = await getCache(`user:${userId}:profile`);
+
             if (!user) {
-                throw new ApiError(455, "User not found");
+                user = await User.findOne({ _id: userId, isActive: true });
+                if (!user) {
+                    throw new ApiError(455, "User not found");
+                }
             }
 
             // Set user in request

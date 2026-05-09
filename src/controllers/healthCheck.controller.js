@@ -4,6 +4,7 @@ import sendMail from "../utils/sendMail.js";
 import { connection } from "../configs/queue.config.js";
 import { qdrantClient } from "../services/vectorService.js";
 import {connectToCloudinary} from "../utils/index.js"
+import redisClient from "../configs/redis.config.js";
 
 export const handleHealthCheck = async (req, res) => {
     // send mail
@@ -36,7 +37,7 @@ export const handleDbPing = async (req, res) => {
 
 export const handleRedisPing = async (req, res) => {
     try {
-        const response = await connection.ping();
+        const response = await redisClient.ping();
 
         return res.status(200).json(
             new ApiResponse(200, "Redis is up and running", {

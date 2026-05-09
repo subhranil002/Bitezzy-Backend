@@ -8,8 +8,12 @@ import {
     handleResetPassword,
     handleForgetPassword,
     handleGetProfile,
+    handleGetMySubscriptions,
+    handleGetMyRecipes,
     handleUpdateProfile,
     handleGetUserById,
+    handleGetUserSubscriptionsById,
+    handleGetUserRecipesById,
     handleSubscribeToChef,
     handleUnsubscribeFromChef,
     handleGetFavourites,
@@ -19,36 +23,41 @@ import {
 import { isLoggedIn } from "../middlewares/auth.middlewares.js";
 import upload from "../middlewares/multer.middlewares.js";
 import { validateUpdateProfile } from "../middlewares/updateProfile.middleware.js";
+import { rateLimiter } from "../middlewares/rateLimiter.middleware.js";
 
 const userRoutes = Router();
 
 // auth routes
-userRoutes.route("/register").post(handleRegister);
-userRoutes.route("/login").post(handleLogin);
-userRoutes.route("/guest-login").post(handleGuestLogin);
+userRoutes.route("/register").post(rateLimiter(60, 5), handleRegister);
+userRoutes.route("/login").post(rateLimiter(60, 5), handleLogin);
+userRoutes.route("/guest-login").post(rateLimiter(60, 5), handleGuestLogin);
 userRoutes.route("/logout").get(isLoggedIn, handleLogout);
 userRoutes
     .route("/change-avatar")
-    .post(isLoggedIn, upload.single("avatar"), handleChangeAvatar);
+    .post(isLoggedIn, rateLimiter(60, 5), upload.single("avatar"), handleChangeAvatar);
 
 // password routes
-userRoutes.route("/change-password").put(isLoggedIn, handleChangePassword);
-userRoutes.route("/reset-password").post(handleResetPassword);
-userRoutes.route("/forget-password").post(handleForgetPassword);
+userRoutes.route("/change-password").put(isLoggedIn, rateLimiter(60, 5), handleChangePassword);
+userRoutes.route("/reset-password").post(rateLimiter(60, 5), handleResetPassword);
+userRoutes.route("/forget-password").post(rateLimiter(60, 5), handleForgetPassword);
 
 // profile routes
-userRoutes.route("/me").get(isLoggedIn, handleGetProfile);
+userRoutes.route("/me").get(isLoggedIn, rateLimiter(60, 120), handleGetProfile);
+userRoutes.route("/me/subscriptions").get(isLoggedIn, rateLimiter(60, 120), handleGetMySubscriptions);
+userRoutes.route("/me/recipes").get(isLoggedIn, rateLimiter(60, 120), handleGetMyRecipes);
 userRoutes
     .route("/update")
-    .put(isLoggedIn, validateUpdateProfile, handleUpdateProfile);
-userRoutes.route("/favourites").get(isLoggedIn, handleGetFavourites);
-userRoutes.route("/:id").get(handleGetUserById);
-userRoutes.route("/contact").post(isLoggedIn, handleContactus);
+    .put(isLoggedIn, rateLimiter(60, 30), validateUpdateProfile, handleUpdateProfile);
+userRoutes.route("/favourites").get(isLoggedIn, rateLimiter(60, 120), handleGetFavourites);
+userRoutes.route("/:id").get(rateLimiter(60, 120), handleGetUserById);
+userRoutes.route("/:id/subscriptions").get(rateLimiter(60, 120), handleGetUserSubscriptionsById);
+userRoutes.route("/:id/recipes").get(rateLimiter(60, 120), handleGetUserRecipesById);
+userRoutes.route("/contact").post(isLoggedIn, rateLimiter(60, 5), handleContactus);
 
 // subscription routes
-userRoutes.route("/subscribe/:chefId").get(isLoggedIn, handleSubscribeToChef);
+userRoutes.route("/subscribe/:chefId").get(isLoggedIn, rateLimiter(60, 30), handleSubscribeToChef);
 userRoutes
     .route("/unsubscribe/:chefId")
-    .get(isLoggedIn, handleUnsubscribeFromChef);
+    .get(isLoggedIn, rateLimiter(60, 30), handleUnsubscribeFromChef);
 
 export default userRoutes;
