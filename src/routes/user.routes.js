@@ -43,21 +43,21 @@ userRoutes.route("/forget-password").post(rateLimiter(60, 5), handleForgetPasswo
 
 // profile routes
 userRoutes.route("/me").get(isLoggedIn, rateLimiter(60, 120), handleGetProfile);
-userRoutes.route("/me/subscriptions").get(isLoggedIn, rateLimiter(60, 120), handleGetMySubscriptions);
-userRoutes.route("/me/recipes").get(isLoggedIn, rateLimiter(60, 120), handleGetMyRecipes);
+userRoutes.route("/subscriptions").get(isLoggedIn, rateLimiter(60, 120), handleGetMySubscriptions);
+userRoutes.route("/recipes").get(isLoggedIn, rateLimiter(60, 30), handleGetMyRecipes);
 userRoutes
     .route("/update")
     .put(isLoggedIn, rateLimiter(60, 30), validateUpdateProfile, handleUpdateProfile);
-userRoutes.route("/favourites").get(isLoggedIn, rateLimiter(60, 120), handleGetFavourites);
-userRoutes.route("/:id").get(rateLimiter(60, 120), handleGetUserById);
-userRoutes.route("/:id/subscriptions").get(rateLimiter(60, 120), handleGetUserSubscriptionsById);
-userRoutes.route("/:id/recipes").get(rateLimiter(60, 120), handleGetUserRecipesById);
+userRoutes.route("/favourites").get(isLoggedIn, rateLimiter(60, 30), handleGetFavourites);
+userRoutes.route("/:id").get(rateLimiter(60, 30), handleGetUserById);
+userRoutes.route("/:id/subscriptions").get(rateLimiter(60, 30), handleGetUserSubscriptionsById);
+userRoutes.route("/:id/recipes").get(rateLimiter(60, 30), handleGetUserRecipesById);
 userRoutes.route("/contact").post(isLoggedIn, rateLimiter(60, 5), handleContactus);
 
 // subscription routes
-userRoutes.route("/subscribe/:chefId").get(isLoggedIn, rateLimiter(60, 30), handleSubscribeToChef);
+userRoutes.route("/subscribe/:chefId").get(isLoggedIn, rateLimiter(60, 15), handleSubscribeToChef);
 userRoutes
     .route("/unsubscribe/:chefId")
-    .get(isLoggedIn, rateLimiter(60, 30), handleUnsubscribeFromChef);
+    .get(isLoggedIn, rateLimiter(60, 15), handleUnsubscribeFromChef);
 
 export default userRoutes;

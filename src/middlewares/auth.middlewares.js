@@ -65,8 +65,8 @@ const refreshAccessToken = async (req, res, next) => {
         error instanceof ApiError
             ? next(error)
             : next(
-                  new ApiError(500, "Something went wrong during validating user tokens")
-              );
+                new ApiError(500, "Something went wrong during validating user tokens")
+            );
     }
 };
 
@@ -98,14 +98,14 @@ export const isLoggedIn = async (req, res, next) => {
 
             const userId = decodedAccessToken._id;
 
-            let user = await getCache(`user:${userId}:profile`);
+            // let user = await getCache(`user:${userId}:profile`);
 
+            // if (!user) {
+            const user = await User.findOne({ _id: userId, isActive: true });
             if (!user) {
-                user = await User.findOne({ _id: userId, isActive: true });
-                if (!user) {
-                    throw new ApiError(455, "User not found");
-                }
+                throw new ApiError(455, "User not found");
             }
+            // }
 
             // Set user in request
             req.user = user;
@@ -121,18 +121,18 @@ export const isLoggedIn = async (req, res, next) => {
         error instanceof ApiError
             ? next(error)
             : next(
-                  new ApiError(500, "Something went wrong during validating user tokens")
-              );
+                new ApiError(500, "Something went wrong during validating user tokens")
+            );
     }
 };
 
 export const isAuthorized =
     (...roles) =>
-    async (req, res, next) => {
-        if (!roles.includes(req.user.role)) {
-            return next(
-                new ApiError(403, "You are not authorized to access this route")
-            );
-        }
-        next();
-    };
+        async (req, res, next) => {
+            if (!roles.includes(req.user.role)) {
+                return next(
+                    new ApiError(403, "You are not authorized to access this route")
+                );
+            }
+            next();
+        };
