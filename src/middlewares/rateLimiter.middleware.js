@@ -9,7 +9,7 @@ export const rateLimiter = (seconds = 60, max = 5) => async (req, res, next) => 
         }
 
         const ip = req.ip;
-        const key = `rate:${ip}`;
+        const key = `rate:${ip}:${req.baseUrl}${req.path}`;
         const windowMs = seconds * 1000; // 60 seconds
 
         // Atomicity (No Race Conditions): Use MULTI/EXEC pipeline in Redis

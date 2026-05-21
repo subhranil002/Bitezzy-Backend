@@ -40,22 +40,22 @@ recipeRoutes
         validateRecipe,
         addRecipe
     )
-    .get(rateLimiter(60, 120), getAllRecipes);
+    .get(rateLimiter(60, 60), getAllRecipes);
 
-recipeRoutes.route("/trending").get(rateLimiter(60, 120), HandleGetTrendingRecipes);
-recipeRoutes.route("/fresh").get(rateLimiter(60, 120), HandleGetFreshRecipes);
-recipeRoutes.route("/quick").get(rateLimiter(60, 120), HandleGetQuickRecipes);
-recipeRoutes.route("/premium").get(rateLimiter(60, 120), HandleGetPremiumRecipes);
-recipeRoutes.route("/recommended").get(isLoggedIn, rateLimiter(60, 120), HandleGetRecommendedRecipes);
+recipeRoutes.route("/trending").get(rateLimiter(60, 60), HandleGetTrendingRecipes);
+recipeRoutes.route("/fresh").get(rateLimiter(60, 60), HandleGetFreshRecipes);
+recipeRoutes.route("/quick").get(rateLimiter(60, 60), HandleGetQuickRecipes);
+recipeRoutes.route("/premium").get(rateLimiter(60, 60), HandleGetPremiumRecipes);
+recipeRoutes.route("/recommended").get(isLoggedIn, rateLimiter(60, 60), HandleGetRecommendedRecipes);
 
-recipeRoutes.route("/search").get(rateLimiter(60, 120), handleGetSearchRecipe);
+recipeRoutes.route("/search").get(rateLimiter(60, 50), handleGetSearchRecipe);
 recipeRoutes.route("/like/:id").get(isLoggedIn, rateLimiter(60, 30), handleLikeRecipe);
 recipeRoutes.route("/unlike/:id").get(isLoggedIn, rateLimiter(60, 30), handleUnlikeRecipe);
 
 recipeRoutes
     .route("/:id")
-    .get(isLoggedIn, rateLimiter(60, 120), getRecipeById)
-    .put(isLoggedIn, rateLimiter(60, 30), isAuthorized("CHEF"), validateRecipe, updateRecipe)
-    .delete(isLoggedIn, rateLimiter(60, 30), isAuthorized("CHEF"), deleteRecipe);
+    .get(isLoggedIn, rateLimiter(60, 30), getRecipeById)
+    .put(isLoggedIn, rateLimiter(60, 10), isAuthorized("CHEF"), validateRecipe, updateRecipe)
+    .delete(isLoggedIn, rateLimiter(60, 10), isAuthorized("CHEF"), deleteRecipe);
 
 export default recipeRoutes;

@@ -108,6 +108,8 @@ export const handleRegister = async (req, res, next) => {
             maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
         });
 
+        await setCache(`user:${newUser._id}:profile`, newUser, 3600);
+
         // send welcome email
         await sendMail(
             newUser.email,
@@ -298,7 +300,7 @@ export const handleChangeAvatar = async (req, res, next) => {
         await setCache(`user:${user._id}:profile`,updatedUser,3600);
 
         res.status(200).json(
-            new ApiResponse(200, "Avatar Uploaded Successfully", updatedUser)
+            new ApiResponse(200, "Avatar Uploaded Successfully", updatedUser?.profile?.avatar)
         );
     } catch (error) {
         await deleteLocalFile(avatarLocalPath);
