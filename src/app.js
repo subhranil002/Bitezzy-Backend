@@ -5,6 +5,7 @@ import {
     healthCheckRoutes,
     chatbotRoutes,
     recipeRoutes,
+    paymentRoutes,
 } from "./routes/index.js";
 import cookieParser from "cookie-parser";
 import constants from "./constants.js";
@@ -31,6 +32,7 @@ app.use("/api/test", healthCheckRoutes); // health check routes
 app.use("/api/user", userRoutes); // user routes
 app.use("/api/recipes", recipeRoutes); // recipe routes
 app.use("/api/chatbot", chatbotRoutes); // chatbot routes
+app.use("/api/payment", paymentRoutes); // payment routes
 
 // handling all other incorrect routes
 app.all(/./, (req, res) => {
