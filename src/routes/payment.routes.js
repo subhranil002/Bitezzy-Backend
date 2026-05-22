@@ -1,11 +1,25 @@
 import { Router } from "express";
-import { handleCancelSubscription, handleCreateSubscription, handleWebhook } from "../controllers/payment.controllers.js";
+import {
+    handleCancelSubscription,
+    handleCreatePlan,
+    handleCreateSubscription,
+    handleWebhook,
+} from "../controllers/payment.controllers.js";
+import { isAuthorized, isLoggedIn } from "../middlewares/auth.middlewares.js";
 
 const paymentRoutes = Router();
 
-paymentRoutes.route("/create-subscription").post(handleCreateSubscription);
-paymentRoutes.route("/webhook").post(handleWebhook);
-paymentRoutes.route("/cancel-subscription/:subscriptionId").post(handleCancelSubscription);
+paymentRoutes
+    .route("/create-plan")
+    .post(isLoggedIn, IsAuthorized("CHEF", "ADMIN"), handleCreatePlan);
 
+paymentRoutes
+    .route("/create-subscription")
+    .post(isLoggedIn, handleCreateSubscription);
+
+paymentRoutes.route("/webhook").post(handleWebhook);
+paymentRoutes
+    .route("/cancel-subscription/:subscriptionId")
+    .post(handleCancelSubscription);
 
 export default paymentRoutes;

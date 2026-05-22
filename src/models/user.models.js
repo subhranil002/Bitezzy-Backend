@@ -221,6 +221,9 @@ const userSchema = new mongoose.Schema(
                     ref: "User",
                 },
             ],
+            razorpayPlanID: {
+                type: String,
+            },
         },
 
         // Embedded favourites array (mainly for normal users)
