@@ -1,7 +1,6 @@
 import { ApiResponse, ApiError } from "../utils/index.js";
 import razorpayInstance from "../configs/razorpay.configs.js";
-import User from "../models/user.model.js";
-import razorpayInstance from "../config/razorpay.config.js";
+import User from "../models/user.models.js";
 
 export const handleCreatePlan = async (req, res, next) => {
     try {

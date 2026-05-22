@@ -11,7 +11,7 @@ const paymentRoutes = Router();
 
 paymentRoutes
     .route("/create-plan")
-    .post(isLoggedIn, IsAuthorized("CHEF", "ADMIN"), handleCreatePlan);
+    .post(isLoggedIn, isAuthorized("CHEF", "ADMIN"), handleCreatePlan);
 
 paymentRoutes
     .route("/create-subscription")
