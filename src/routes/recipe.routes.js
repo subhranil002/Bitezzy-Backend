@@ -13,11 +13,11 @@ import {
     handleLikeRecipe,
     handleUnlikeRecipe,
     handleGetSearchRecipe,
+    getSimilarRecipes,
 } from "../controllers/recipe.controllers.js";
 import {
     parseRecipeJsonFields,
     validateRecipe,
-    validateRecipeFiles,
 } from "../middlewares/recipe.middlewares.js";
 import { isAuthorized, isLoggedIn } from "../middlewares/auth.middlewares.js";
 import upload from "../middlewares/multer.middlewares.js";
@@ -51,6 +51,7 @@ recipeRoutes.route("/recommended").get(isLoggedIn, rateLimiter(60, 60), HandleGe
 recipeRoutes.route("/search").get(rateLimiter(60, 50), handleGetSearchRecipe);
 recipeRoutes.route("/like/:id").get(isLoggedIn, rateLimiter(60, 30), handleLikeRecipe);
 recipeRoutes.route("/unlike/:id").get(isLoggedIn, rateLimiter(60, 30), handleUnlikeRecipe);
+recipeRoutes.route("/similar/:id").get(isLoggedIn, rateLimiter(60, 30), getSimilarRecipes);
 
 recipeRoutes
     .route("/:id")

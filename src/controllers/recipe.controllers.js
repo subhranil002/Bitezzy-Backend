@@ -87,9 +87,9 @@ const getAllRecipes = async (req, res, next) => {
             cuisine: req.query.cuisine,
             dietaryPreference: req.query.dietaryPreference
                 ? req.query.dietaryPreference
-                    .split(",")
-                    .filter((pref) => pref.trim() !== "")
-                    .map((pref) => pref.trim().toLowerCase())
+                      .split(",")
+                      .filter((pref) => pref.trim() !== "")
+                      .map((pref) => pref.trim().toLowerCase())
                 : [],
             minPrice: req.query.minPrice
                 ? parseFloat(req.query.minPrice)
@@ -325,9 +325,9 @@ const getRecipeById = async (req, res, next) => {
             error instanceof ApiError
                 ? error
                 : new ApiError(
-                    500,
-                    "Something went wrong during fetching recipe"
-                )
+                      500,
+                      "Something went wrong during fetching recipe"
+                  )
         );
     }
 };
@@ -347,7 +347,7 @@ const updateRecipe = async (req, res, next) => {
         }
         // Update cache directly
         await setCache(`recipe:${req.params.id}`, recipe, 3600);
-        
+
         await recipeQueue.add(
             "recipe-queue",
             {
@@ -356,7 +356,6 @@ const updateRecipe = async (req, res, next) => {
             },
             { removeOnComplete: true, removeOnFail: true }
         );
-
 
         return res
             .status(200)
@@ -407,11 +406,11 @@ const deleteRecipe = async (req, res, next) => {
         error instanceof ApiError
             ? next(error)
             : next(
-                new ApiError(
-                    500,
-                    "Something went wrong during recipe deletion"
-                )
-            );
+                  new ApiError(
+                      500,
+                      "Something went wrong during recipe deletion"
+                  )
+              );
     }
 };
 
@@ -424,7 +423,7 @@ const HandleGetTrendingRecipes = async (req, res, next) => {
 
         let trendingRecipes = await getCache(cacheKey);
 
-        if(!trendingRecipes){
+        if (!trendingRecipes) {
             trendingRecipes = await Recipe.aggregate([
                 // Only recipes created in last 30 days
                 // {
@@ -432,27 +431,29 @@ const HandleGetTrendingRecipes = async (req, res, next) => {
                 //         createdAt: { $gte: thirtyDaysAgo },
                 //     },
                 // },
-    
+
                 // Consider only active recipes
                 {
                     $match: {
                         isActive: true,
                     },
                 },
-    
+
                 // Compute like count
                 {
                     $addFields: {
-                        likeCountTotal: { $size: { $ifNull: ["$likeCount", []] } },
+                        likeCountTotal: {
+                            $size: { $ifNull: ["$likeCount", []] },
+                        },
                     },
                 },
-    
+
                 // Sort by likeCount desc
                 { $sort: { likeCountTotal: -1, createdAt: -1 } },
-    
+
                 // Limit to 10
                 { $limit: limit },
-    
+
                 {
                     $project: {
                         _id: 1,
@@ -489,9 +490,9 @@ const HandleGetTrendingRecipes = async (req, res, next) => {
             error instanceof ApiError
                 ? error
                 : new ApiError(
-                    500,
-                    "Something went wrong fetching trending recipes"
-                )
+                      500,
+                      "Something went wrong fetching trending recipes"
+                  )
         );
     }
 };
@@ -503,7 +504,7 @@ const HandleGetFreshRecipes = async (req, res, next) => {
 
         let freshRecipes = await getCache(cacheKey);
 
-        if(!freshRecipes){
+        if (!freshRecipes) {
             freshRecipes = await Recipe.aggregate([
                 // Consider only active recipes
                 {
@@ -551,9 +552,9 @@ const HandleGetFreshRecipes = async (req, res, next) => {
             error instanceof ApiError
                 ? error
                 : new ApiError(
-                    500,
-                    "Something went wrong fetching fresh recipes"
-                )
+                      500,
+                      "Something went wrong fetching fresh recipes"
+                  )
         );
     }
 };
@@ -566,9 +567,9 @@ const HandleGetQuickRecipes = async (req, res, next) => {
 
         let quickRecipes = await getCache(cacheKey);
 
-        if(!quickRecipes){
+        if (!quickRecipes) {
             const pipeline = [];
-    
+
             // If maxTime is sent from frontend → apply filter
             if (maxTime !== null && !isNaN(maxTime)) {
                 pipeline.push({
@@ -577,7 +578,7 @@ const HandleGetQuickRecipes = async (req, res, next) => {
                     },
                 });
             }
-    
+
             pipeline.push(
                 // Consider only active recipes
                 {
@@ -603,9 +604,9 @@ const HandleGetQuickRecipes = async (req, res, next) => {
                     },
                 }
             );
-    
+
             quickRecipes = await Recipe.aggregate(pipeline);
-    
+
             // console.log(quickRecipes);
             await setCache(cacheKey, quickRecipes, 300);
         }
@@ -626,9 +627,9 @@ const HandleGetQuickRecipes = async (req, res, next) => {
             error instanceof ApiError
                 ? error
                 : new ApiError(
-                    500,
-                    "Something went wrong fetching quick recipes"
-                )
+                      500,
+                      "Something went wrong fetching quick recipes"
+                  )
         );
     }
 };
@@ -639,7 +640,7 @@ const HandleGetPremiumRecipes = async (req, res, next) => {
         const cacheKey = `feed:premium:${limit}`;
 
         let premiumRecipes = await getCache(cacheKey);
-        if(!premiumRecipes){
+        if (!premiumRecipes) {
             premiumRecipes = await Recipe.aggregate([
                 {
                     $match: {
@@ -664,7 +665,7 @@ const HandleGetPremiumRecipes = async (req, res, next) => {
                     },
                 },
             ]);
-    
+
             await setCache(cacheKey, premiumRecipes, 300);
         }
 
@@ -684,9 +685,9 @@ const HandleGetPremiumRecipes = async (req, res, next) => {
             error instanceof ApiError
                 ? error
                 : new ApiError(
-                    500,
-                    "Something went wrong fetching premium recipes"
-                )
+                      500,
+                      "Something went wrong fetching premium recipes"
+                  )
         );
     }
 };
@@ -698,11 +699,12 @@ const HandleGetRecommendedRecipes = async (req, res, next) => {
         const cacheKey = `feed:recommended:${userId}:${limit}`;
 
         let recommendedRecipes = await getCache(cacheKey);
-        if(!recommendedRecipes){
+        if (!recommendedRecipes) {
             // Get the logged-in user's preferences
             const { cuisine, dietaryLabels } = req?.user?.profile || {};
-            const { cuisineSuggested, dietaryLabelsSuggested } = req?.user || {};
-    
+            const { cuisineSuggested, dietaryLabelsSuggested } =
+                req?.user || {};
+
             // flatten + merge
             const allCuisines = [cuisine, ...(cuisineSuggested || [])].filter(
                 Boolean
@@ -711,19 +713,19 @@ const HandleGetRecommendedRecipes = async (req, res, next) => {
                 ...(dietaryLabels || []),
                 ...(dietaryLabelsSuggested?.flat() || []),
             ].filter(Boolean);
-    
+
             // build a single semantic search query string and exclude duplicates
             const searchQuery =
                 [...new Set(allCuisines), ...new Set(allDietary)].join(" ") ||
                 "Popular";
-    
+
             // search for similar recipes
             const similarRecipes = await similaritySearch(searchQuery, limit);
             const uuids = similarRecipes.map((item) => item.id);
             recommendedRecipes = await Recipe.find({
                 uuid: { $in: uuids },
-            }).select("-ingredients -steps -nutrition -reviews -externalMediaLinks");
-    
+            }).select("-ingredients -steps -reviews -externalMediaLinks");
+
             await setCache(cacheKey, recommendedRecipes, 300); // 300s for recommended
         }
 
@@ -744,9 +746,9 @@ const HandleGetRecommendedRecipes = async (req, res, next) => {
             error instanceof ApiError
                 ? error
                 : new ApiError(
-                    500,
-                    "Something went wrong fetching recommended recipes"
-                )
+                      500,
+                      "Something went wrong fetching recommended recipes"
+                  )
         );
     }
 };
@@ -796,9 +798,9 @@ const handleLikeRecipe = async (req, res, next) => {
             error instanceof ApiError
                 ? error
                 : new ApiError(
-                    500,
-                    "Something went wrong while adding recipe to favourites"
-                )
+                      500,
+                      "Something went wrong while adding recipe to favourites"
+                  )
         );
     }
 };
@@ -849,9 +851,9 @@ const handleUnlikeRecipe = async (req, res, next) => {
             error instanceof ApiError
                 ? error
                 : new ApiError(
-                    500,
-                    "Something went wrong while removing from favourites"
-                )
+                      500,
+                      "Something went wrong while removing from favourites"
+                  )
         );
     }
 };
@@ -879,7 +881,7 @@ const handleGetSearchRecipe = async (req, res, next) => {
         pipeline.push({
             $match: { isActive: true },
         });
-        
+
         if (query) {
             pipeline.push({
                 $match: {
@@ -1086,9 +1088,54 @@ const handleGetSearchRecipe = async (req, res, next) => {
             error instanceof ApiError
                 ? error
                 : new ApiError(
-                    500,
-                    "Something went wrong while searching for recipes."
-                )
+                      500,
+                      "Something went wrong while searching for recipes."
+                  )
+        );
+    }
+};
+
+const getSimilarRecipes = async (req, res, next) => {
+    try {
+        const limit = Number(req.query.limit) || 10;
+        const cacheKey = `recipe:${req.params.id}`;
+        let recipe = await getCache(cacheKey);
+
+        if (!recipe) {
+            recipe = await Recipe.findOne({
+                _id: req.params.id,
+                isActive: true,
+            });
+            if (!recipe) {
+                throw new ApiError(404, "Recipe not found");
+            }
+
+            await setCache(cacheKey, recipe, 3600);
+        }
+
+        const searchQuery = `${recipe.cuisine} ${recipe.dietaryLabels.join(" ")} ${recipe.ingredients.map((ing) => ing.name).join(" ")}`;
+
+        const similarRecipes = await similaritySearch(searchQuery, limit + 1);
+        const uuids = similarRecipes
+            .map((item) => item.id)
+            .filter((id) => id !== recipe.uuid)
+            .slice(0, limit);
+        const recipes = await Recipe.find({
+            uuid: { $in: uuids },
+        }).select("-ingredients -steps -reviews -externalMediaLinks");
+
+        return res
+            .status(200)
+            .json(new ApiResponse(200, "Similar recipes found", recipes));
+    } catch (error) {
+        console.log("Error while fetching similar recipes:", error);
+        return next(
+            error instanceof ApiError
+                ? error
+                : new ApiError(
+                      500,
+                      "Something went wrong while fetching similar recipes."
+                  )
         );
     }
 };
@@ -1107,4 +1154,5 @@ export {
     handleLikeRecipe,
     handleUnlikeRecipe,
     handleGetSearchRecipe,
+    getSimilarRecipes,
 };
