@@ -12,6 +12,11 @@ export const handleCreatePlan = async (req, res, next) => {
             throw new ApiError(400, "Subscription price not set");
         }
 
+        // Check if plan already exists
+        if (user.chefProfile.razorpayPlanId) {
+            throw new ApiError(400, "Plan already exists");
+        }
+
         // Create Razorpay Plan
         const plan = await razorpayInstance.plans.create({
             period: "monthly",
@@ -29,9 +34,9 @@ export const handleCreatePlan = async (req, res, next) => {
 
         await user.save();
 
-        return res.status(201).json(
-            new ApiResponse(201, "Plan created successfully", plan)
-        );
+        return res
+            .status(201)
+            .json(new ApiResponse(201, "Plan created successfully", plan));
     } catch (error) {
         console.log(error);
 
@@ -43,7 +48,7 @@ export const handleCreatePlan = async (req, res, next) => {
     }
 };
 
-export const handleCreateSubscription = async (req, res) => {
+export const handleCreateSubscription = async (req, res, next) => {
     try {
         const { chefId } = req.body;
 
@@ -66,24 +71,16 @@ export const handleCreateSubscription = async (req, res) => {
             throw new ApiError(400, "Subscription price not set");
         }
 
+        // Check if plan exists
+        if (!chef.chefProfile.razorpayPlanId) {
+            throw new ApiError(400, "Chef subscription plan not found");
+        }
+
         // TODO: check if user has already subscribed
-
-        // creating plan for the user
-        const plan = await razorpayInstance.plans.create({
-            period: "monthly",
-            interval: 1,
-
-            item: {
-                name: `${chef.profile.name} Subscription`,
-                amount: subscriptionPrice * 100, // paise
-                currency: "INR",
-                description: `Monthly subscription for ${chef.profile.name}`,
-            },
-        });
 
         // creating subscription for the user
         const subscription = await razorpayInstance.subscriptions.create({
-            plan_id: plan.id,
+            plan_id: chef.chefProfile.razorpayPlanId,
             total_count: 12,
             customer_notify: 1,
             notes: {
@@ -92,14 +89,23 @@ export const handleCreateSubscription = async (req, res) => {
             },
         });
 
-        return res.status(201).json({
-            success: true,
-            subscriptionId: subscription.id,
-            razorpayKey: process.env.RAZORPAY_KEY_ID,
-            subscription,
-        });
+        return res
+            .status(201)
+            .json(
+                new ApiResponse(
+                    201,
+                    "Subscription created successfully",
+                    subscription
+                )
+            );
     } catch (error) {
         console.log(error);
+
+        return next(
+            error instanceof ApiError
+                ? error
+                : new ApiError(500, "Something went wrong while creating subscription")
+        );
     }
 };
 

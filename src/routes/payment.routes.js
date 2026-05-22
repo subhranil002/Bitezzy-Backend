@@ -15,7 +15,7 @@ paymentRoutes
 
 paymentRoutes
     .route("/create-subscription")
-    .post(isLoggedIn, handleCreateSubscription);
+    .post(isLoggedIn, isAuthorized("USER"), handleCreateSubscription);
 
 paymentRoutes.route("/webhook").post(handleWebhook);
 paymentRoutes
