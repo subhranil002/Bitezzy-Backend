@@ -21,6 +21,10 @@ const corsOptions = {
 };
 
 // middlewares
+app.use(
+    "/api/payments/webhook",
+    express.raw({ type: "application/json" })
+); // to handle razorpay webhook raw body
 app.use(express.json()); // to handle json data
 app.use(express.urlencoded({ extended: true })); // to handle url encoded data like form data
 app.use(cookieParser()); // to handle cookies

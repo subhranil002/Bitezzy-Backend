@@ -1,6 +1,9 @@
 import { ApiResponse, ApiError } from "../utils/index.js";
 import razorpayInstance from "../configs/razorpay.configs.js";
 import User from "../models/user.models.js";
+import Payment from "../models/payment.models.js";
+import constants from "../constants.js";
+import crypto from "crypto";
 
 export const handleCreatePlan = async (req, res, next) => {
     try {
@@ -104,11 +107,202 @@ export const handleCreateSubscription = async (req, res, next) => {
         return next(
             error instanceof ApiError
                 ? error
-                : new ApiError(500, "Something went wrong while creating subscription")
+                : new ApiError(
+                      500,
+                      "Something went wrong while creating subscription"
+                  )
         );
     }
 };
 
-export const handleWebhook = () => {};
+export const handleWebhook = async (req, res, next) => {
+    try {
+        // Get Razorpay signature
+        const razorpaySignature = req.headers["x-razorpay-signature"];
+
+        // Create expected signature
+        const expectedSignature = crypto
+            .createHmac("sha256", constants.RAZORPAY_WEBHOOK_SECRET)
+            .update(req.body)
+            .digest("hex");
+
+        // Verify signature
+        if (razorpaySignature !== expectedSignature) {
+            throw new ApiError(400, "Invalid webhook signature");
+        }
+
+        // Convert raw buffer to JSON
+        const payload = JSON.parse(req.body.toString());
+
+        // Event type
+        const event = payload.event;
+
+        switch (event) {
+            // Payment Success
+            case "payment.captured": {
+                const paymentEntity = payload.payload.payment?.entity;
+                const {
+                    id: razorpayPaymentId,
+                    subscription_id: razorpaySubscriptionId,
+                    amount,
+                    currency,
+                    status,
+                } = paymentEntity;
+
+                const userId = paymentEntity.notes?.userId;
+                const chefId = paymentEntity.notes?.chefId;
+
+                if (!userId || !chefId) {
+                    break;
+                }
+
+                // Prevent duplicate payment save
+                const existingPayment = await Payment.findOne({
+                    razorpayPaymentId,
+                });
+
+                if (existingPayment) {
+                    break;
+                }
+
+                await Payment.create({
+                    razorpayPaymentId,
+                    razorpaySubscriptionId,
+                    razorpaySignature,
+                    purchasedBy: userId,
+                    chef: chefId,
+                    amount: amount / 100,
+                    currency,
+                    status, // payment status
+                    subscriptionStatus: "active", // subscription status
+                });
+
+                // Add chef to user's subscribed list
+                await User.findOneAndUpdate(
+                    {
+                        _id: userId,
+                        isActive: true,
+                    },
+                    {
+                        $addToSet: {
+                            "profile.subscribed": chefId,
+                        },
+                    }
+                );
+
+                // Add user to chef subscribers
+                await User.findOneAndUpdate(
+                    {
+                        _id: chefId,
+                        isActive: true,
+                    },
+                    {
+                        $addToSet: {
+                            "chefProfile.subscribers": userId,
+                        },
+                    }
+                );
+                break;
+            }
+            case "payment.failed": {
+                console.log("Payment failed");
+                // throw new ApiError(400, "Payment failed");
+                break;
+            }
+            case "subscription.activated": {
+                const subscriptionEntity = payload.payload.subscription?.entity;
+
+                const {
+                    id: razorpaySubscriptionId,
+                    current_start,
+                    current_end,
+                    charge_at,
+                    status,
+                } = subscriptionEntity;
+
+                await Payment.findOneAndUpdate(
+                    {
+                        razorpaySubscriptionId,
+                    },
+                    {
+                        subscriptionStatus: status,
+                        currentStart: new Date(current_start * 1000),
+                        currentEnd: new Date(current_end * 1000),
+                        nextBillingAt: new Date(charge_at * 1000),
+                    }
+                );
+
+                break;
+            }
+            case "subscription.cancelled": {
+                const subscriptionEntity = payload.payload.subscription?.entity;
+
+                const { id: razorpaySubscriptionId, ended_at } =
+                    subscriptionEntity;
+
+                const payment = await Payment.findOneAndUpdate(
+                    {
+                        razorpaySubscriptionId,
+                    },
+                    {
+                        subscriptionStatus: "cancelled",
+                        cancelledAt: new Date(ended_at * 1000),
+                    },
+                    {
+                        new: true,
+                    }
+                );
+
+                // Remove chef from user's subscribed list
+                if (payment) {
+                    await User.findOneAndUpdate(
+                        {
+                            _id: payment.purchasedBy,
+                            isActive: true,
+                        },
+                        {
+                            $pull: {
+                                "profile.subscribed": payment.chef,
+                            },
+                        }
+                    );
+
+                    // Remove user from chef subscribers list
+                    await User.findOneAndUpdate(
+                        {
+                            _id: payment.chef,
+                            isActive: true,
+                        },
+                        {
+                            $pull: {
+                                "chefProfile.subscribers": payment.purchasedBy,
+                            },
+                        }
+                    );
+                }
+
+                break;
+            }
+            default:
+                console.log(`Unhandled event: ${event}`);
+                break;
+        }
+
+        res.status(200).json(
+            new ApiResponse(200, "Webhook handled successfully")
+        );
+    } catch (error) {
+        console.log(error);
+
+        return next(
+            error instanceof ApiError
+                ? error
+                : new ApiError(
+                      500,
+                      "Something went wrong while handling webhook"
+                  )
+        );
+    }
+};
 
 export const handleCancelSubscription = () => {};
