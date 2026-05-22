@@ -7,7 +7,7 @@ import { searchRecipesNode } from "../nodes/searchRecipes.node.js";
 import { draftReplyNode } from "../nodes/draftReply.node.js";
 import { otherQueriesNode } from "../nodes/otherQueries.node.js";
 
-export const recipeGraph = new StateGraph(State)
+export const bitebotGraph = new StateGraph(State)
     .addNode("decideRoute", decideRouteNode)
     .addNode("cookingTip", cookingTipNode)
     .addNode("translateUserQuery", translateUserQueryNode)

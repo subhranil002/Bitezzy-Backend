@@ -7,7 +7,7 @@ const recipeSchema = new mongoose.Schema(
             required: [true, "UUID is required"],
             index: true,
         },
-        
+
         title: {
             type: String,
             required: [true, "Title is required"],
@@ -157,27 +157,27 @@ const recipeSchema = new mongoose.Schema(
 
         nutrition: {
             calorie: {
-                type: String,
+                type: Number,
             },
-        
+
             carbohydrate: {
-                type: String,
+                type: Number,
             },
-        
+
             protein: {
-                type: String,
+                type: Number,
             },
-        
+
             fat: {
-                type: String,
+                type: Number,
             },
-        
+
             fiber: {
-                type: String,
+                type: Number,
             },
-        
+
             sugar: {
-                type: String,
+                type: Number,
             },
         },
 

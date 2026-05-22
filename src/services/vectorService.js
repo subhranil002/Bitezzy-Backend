@@ -7,7 +7,7 @@ export const qdrantClient = new QdrantClient({
 });
 
 const COLLECTION = process.env.QDRANT_COLLECTION_NAME;
-const VECTOR_SIZE = process.env.QDRANT_VECTOR_SIZE;
+const VECTOR_SIZE = Number(process.env.QDRANT_VECTOR_SIZE);
 const VECTOR_DISTANCE = process.env.QDRANT_VECTOR_DISTANCE;
 
 /**

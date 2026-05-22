@@ -7,6 +7,7 @@ import { upsertVector } from "../services/vectorService.js";
 import { v7 as uuidv7 } from "uuid";
 import mongoose from "mongoose";
 import "dotenv/config";
+import getNutritionValues from "../utils/getNutritionValues.js";
 
 async function addRecipe(data, files, userId) {
     console.log("📤🖼️ Uploading thumbnail...");
@@ -23,6 +24,9 @@ async function addRecipe(data, files, userId) {
     }));
     console.log("🧾✅ Steps processed with images");
 
+    const nutritionValues = await getNutritionValues(data);
+    console.log("🍎📊 Nutrition values calculated");
+
     const uuid = uuidv7();
     await mongoose.connect(process.env.MONGO_URI);
     const recipe = await Recipe.create({
@@ -30,6 +34,7 @@ async function addRecipe(data, files, userId) {
         steps,
         thumbnail,
         chefId: userId,
+        nutrition: nutritionValues,
         uuid,
     });
     console.log(`🍲✅ Recipe created (ID: ${recipe._id})`);

@@ -34,13 +34,37 @@ const thumbnailSchema = z.object({
     secure_url: z.string().default(""),
 });
 
+const ingredientSchema = z.object({
+    name: z.string(),
+    quantity: z.number(),
+    unit: z.string(),
+    marketPrice: z.number(),
+});
+
+const nutritionSchema = z.object({
+    calorie: z.number(),
+    carbohydrate: z.number(),
+    protein: z.number(),
+    fat: z.number(),
+    fiber: z.number(),
+    sugar: z.number(),
+});
+
 export const recipesSchema = z.array(
     z
         .object({
             _id: z.preprocess((val) => val?.toString(), z.string()),
             title: z.string(),
-            cuisine: z.string(),
+            description: z.string(),
             thumbnail: thumbnailSchema,
+            cuisine: z.string(),
+            chefId: z.preprocess((val) => val?.toString(), z.string()),
+            totalCookingTime: z.number(),
+            servings: z.number(),
+            isPremium: z.boolean(),
+            ingredients: z.array(ingredientSchema),
+            dietaryLabels: z.array(z.string()),
+            nutrition: nutritionSchema,
         })
         .strip()
 );

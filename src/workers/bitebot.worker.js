@@ -1,13 +1,13 @@
 import "dotenv/config";
 import { parentPort, workerData } from "node:worker_threads";
-import { recipeGraph } from "../ai/graphs/recipe.graph.js";
+import { bitebotGraph } from "../ai/graphs/bitebot.graph.js";
 
 (async () => {
     try {
         const { messages, toolInUse, language } = workerData;
 
         // Invoke graph
-        const result = await recipeGraph.invoke({
+        const result = await bitebotGraph.invoke({
             messages,
             toolInUse,
             language,

@@ -3,7 +3,7 @@ import { Worker } from "node:worker_threads";
 export function userQueryProcessor(payload) {
     return new Promise((resolve, reject) => {
         const worker = new Worker(
-            new URL("../workers/chatbot.worker.js", import.meta.url),
+            new URL("../workers/bitebot.worker.js", import.meta.url),
             {
                 workerData: payload,
             }

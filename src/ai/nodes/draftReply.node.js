@@ -8,9 +8,8 @@ const buildRecipeContext = (recipes) => {
     const hasRecipes = recipes?.length > 0;
 
     return JSON.stringify({
-        recipesFound: hasRecipes ? recipes : null,
-        note: hasRecipes
-            ? "Present the recipes below to the user naturally."
+        recipesFound: hasRecipes
+            ? recipes
             : "No recipes were found. Respond with a friendly fallback message.",
     });
 };
