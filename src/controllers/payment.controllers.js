@@ -305,4 +305,53 @@ export const handleWebhook = async (req, res, next) => {
     }
 };
 
-export const handleCancelSubscription = () => {};
+export const handleCancelSubscription = async (req, res, next) => {
+    try {
+        const userId = req.user._id;
+
+        const { chefId } = req.body;
+
+        // Find active subscription
+        const payment = await Payment.findOne({
+            purchasedBy: userId,
+            chef: chefId,
+            subscriptionStatus: "active",
+        });
+
+        if (!payment) {
+            throw new ApiError(404, "Active subscription not found");
+        }
+
+        // Cancel subscription in Razorpay
+        const cancelledSubscription =
+            await razorpayInstance.subscriptions.cancel(
+                payment.razorpaySubscriptionId,
+                {
+                    cancel_at_cycle_end: true,
+                    // true = cancel after billing cycle
+                    // false = immediate cancel
+                }
+            );
+
+        return res
+            .status(200)
+            .json(
+                new ApiResponse(
+                    200,
+                    "Subscription cancelled successfully",
+                    cancelledSubscription
+                )
+            );
+    } catch (error) {
+        console.log(error);
+
+        return next(
+            error instanceof ApiError
+                ? error
+                : new ApiError(
+                      500,
+                      "Something went wrong while cancelling subscription"
+                  )
+        );
+    }
+};

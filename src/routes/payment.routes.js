@@ -18,8 +18,9 @@ paymentRoutes
     .post(isLoggedIn, isAuthorized("USER"), handleCreateSubscription);
 
 paymentRoutes.route("/webhook").post(handleWebhook);
+
 paymentRoutes
     .route("/cancel-subscription/:subscriptionId")
-    .post(handleCancelSubscription);
+    .post(isloggedIn, isAuthorized("USER"), handleCancelSubscription);
 
 export default paymentRoutes;
