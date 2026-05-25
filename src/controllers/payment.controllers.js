@@ -86,10 +86,10 @@ export const handleCreateSubscription = async (req, res, next) => {
             plan_id: chef.chefProfile.razorpayPlanId,
             total_count: 12,
             customer_notify: 1,
-            // notes: {
-            //     userId: req.user._id.toString(),
-            //     chefId: chefId.toString(),
-            // },
+            notes: {
+                userId: req.user._id.toString(),
+                chefId: chefId.toString(),
+            },
         });
 
         return res
@@ -151,59 +151,59 @@ export const handleWebhook = async (req, res, next) => {
 
                 console.log(payload.payload.payment?.entity);
 
-                // const userId = paymentEntity.notes?.userId;
-                // const chefId = paymentEntity.notes?.chefId;
+                const userId = paymentEntity.notes?.userId;
+                const chefId = paymentEntity.notes?.chefId;
 
-                // if (!userId || !chefId) {
-                //     break;
-                // }
+                if (!userId || !chefId) {
+                    break;
+                }
 
                 // Prevent duplicate payment save
-                // const existingPayment = await Payment.findOne({
-                //     razorpayPaymentId,
-                // });
+                const existingPayment = await Payment.findOne({
+                    razorpayPaymentId,
+                });
 
-                // if (existingPayment) {
-                //     break;
-                // }
+                if (existingPayment) {
+                    break;
+                }
 
-                // await Payment.create({
-                //     razorpayPaymentId,
-                //     razorpaySubscriptionId,
-                //     razorpaySignature,
-                //     purchasedBy: userId,
-                //     chef: chefId,
-                //     amount: amount / 100,
-                //     currency,
-                //     status, // payment status
-                //     subscriptionStatus: "active", // subscription status
-                // });
+                await Payment.create({
+                    razorpayPaymentId,
+                    razorpaySubscriptionId,
+                    razorpaySignature,
+                    purchasedBy: userId,
+                    chef: chefId,
+                    amount: amount / 100,
+                    currency,
+                    status, // payment status
+                    subscriptionStatus: "active", // subscription status
+                });
 
-                // // Add chef to user's subscribed list
-                // await User.findOneAndUpdate(
-                //     {
-                //         _id: userId,
-                //         isActive: true,
-                //     },
-                //     {
-                //         $addToSet: {
-                //             "profile.subscribed": chefId,
-                //         },
-                //     }
-                // );
+                // Add chef to user's subscribed list
+                await User.findOneAndUpdate(
+                    {
+                        _id: userId,
+                        isActive: true,
+                    },
+                    {
+                        $addToSet: {
+                            "profile.subscribed": chefId,
+                        },
+                    }
+                );
 
-                // // Add user to chef subscribers
-                // await User.findOneAndUpdate(
-                //     {
-                //         _id: chefId,
-                //         isActive: true,
-                //     },
-                //     {
-                //         $addToSet: {
-                //             "chefProfile.subscribers": userId,
-                //         },
-                //     }
-                // );
+                // Add user to chef subscribers
+                await User.findOneAndUpdate(
+                    {
+                        _id: chefId,
+                        isActive: true,
+                    },
+                    {
+                        $addToSet: {
+                            "chefProfile.subscribers": userId,
+                        },
+                    }
+                );
                 break;
             }
             case "payment.failed": {
