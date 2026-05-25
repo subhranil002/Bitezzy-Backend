@@ -15,12 +15,13 @@ paymentRoutes
 
 paymentRoutes
     .route("/create-subscription")
-    .post(isLoggedIn, isAuthorized("USER"), handleCreateSubscription);
+    // .post(isLoggedIn, isAuthorized("USER"), handleCreateSubscription);
+    .post(handleCreateSubscription);
 
 paymentRoutes.route("/webhook").post(handleWebhook);
 
 paymentRoutes
     .route("/cancel-subscription/:subscriptionId")
-    .post(isloggedIn, isAuthorized("USER"), handleCancelSubscription);
+    .post(isLoggedIn, isAuthorized("USER"), handleCancelSubscription);
 
 export default paymentRoutes;

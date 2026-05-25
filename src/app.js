@@ -30,6 +30,7 @@ app.use(express.urlencoded({ extended: true })); // to handle url encoded data l
 app.use(cookieParser()); // to handle cookies
 app.use(cors(corsOptions));
 app.use(morgan("dev")); // to log requests
+app.use(express.static("public")); // to serve static files
 
 // routes
 app.use("/api/test", healthCheckRoutes); // health check routes
