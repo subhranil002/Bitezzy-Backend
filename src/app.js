@@ -22,7 +22,7 @@ const corsOptions = {
 
 // middlewares
 app.use(
-    "/api/payments/webhook",
+    "/api/payment/webhook",
     express.raw({ type: "application/json" })
 ); // to handle razorpay webhook raw body
 app.use(express.json()); // to handle json data
