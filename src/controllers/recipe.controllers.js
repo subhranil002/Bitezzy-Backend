@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Recipe from "../models/recipe.models.js";
 import { ApiResponse, ApiError } from "../utils/index.js";
 import User from "../models/user.models.js";
@@ -87,9 +88,9 @@ const getAllRecipes = async (req, res, next) => {
             cuisine: req.query.cuisine,
             dietaryPreference: req.query.dietaryPreference
                 ? req.query.dietaryPreference
-                      .split(",")
-                      .filter((pref) => pref.trim() !== "")
-                      .map((pref) => pref.trim().toLowerCase())
+                    .split(",")
+                    .filter((pref) => pref.trim() !== "")
+                    .map((pref) => pref.trim().toLowerCase())
                 : [],
             minPrice: req.query.minPrice
                 ? parseFloat(req.query.minPrice)
@@ -325,9 +326,9 @@ const getRecipeById = async (req, res, next) => {
             error instanceof ApiError
                 ? error
                 : new ApiError(
-                      500,
-                      "Something went wrong during fetching recipe"
-                  )
+                    500,
+                    "Something went wrong during fetching recipe"
+                )
         );
     }
 };
@@ -406,11 +407,11 @@ const deleteRecipe = async (req, res, next) => {
         error instanceof ApiError
             ? next(error)
             : next(
-                  new ApiError(
-                      500,
-                      "Something went wrong during recipe deletion"
-                  )
-              );
+                new ApiError(
+                    500,
+                    "Something went wrong during recipe deletion"
+                )
+            );
     }
 };
 
@@ -490,9 +491,9 @@ const HandleGetTrendingRecipes = async (req, res, next) => {
             error instanceof ApiError
                 ? error
                 : new ApiError(
-                      500,
-                      "Something went wrong fetching trending recipes"
-                  )
+                    500,
+                    "Something went wrong fetching trending recipes"
+                )
         );
     }
 };
@@ -552,9 +553,9 @@ const HandleGetFreshRecipes = async (req, res, next) => {
             error instanceof ApiError
                 ? error
                 : new ApiError(
-                      500,
-                      "Something went wrong fetching fresh recipes"
-                  )
+                    500,
+                    "Something went wrong fetching fresh recipes"
+                )
         );
     }
 };
@@ -627,9 +628,9 @@ const HandleGetQuickRecipes = async (req, res, next) => {
             error instanceof ApiError
                 ? error
                 : new ApiError(
-                      500,
-                      "Something went wrong fetching quick recipes"
-                  )
+                    500,
+                    "Something went wrong fetching quick recipes"
+                )
         );
     }
 };
@@ -685,16 +686,17 @@ const HandleGetPremiumRecipes = async (req, res, next) => {
             error instanceof ApiError
                 ? error
                 : new ApiError(
-                      500,
-                      "Something went wrong fetching premium recipes"
-                  )
+                    500,
+                    "Something went wrong fetching premium recipes"
+                )
         );
     }
 };
 
 const HandleGetRecommendedRecipes = async (req, res, next) => {
     try {
-        const { limit = 10 } = req.query;
+        const { rawLimit = 10 } = req.query;
+        const limit = Number(rawLimit) || 10;
         const userId = req?.user?._id?.toString() || "guest";
         const cacheKey = `feed:recommended:${userId}:${limit}`;
 
@@ -746,9 +748,9 @@ const HandleGetRecommendedRecipes = async (req, res, next) => {
             error instanceof ApiError
                 ? error
                 : new ApiError(
-                      500,
-                      "Something went wrong fetching recommended recipes"
-                  )
+                    500,
+                    "Something went wrong fetching recommended recipes"
+                )
         );
     }
 };
@@ -798,9 +800,9 @@ const handleLikeRecipe = async (req, res, next) => {
             error instanceof ApiError
                 ? error
                 : new ApiError(
-                      500,
-                      "Something went wrong while adding recipe to favourites"
-                  )
+                    500,
+                    "Something went wrong while adding recipe to favourites"
+                )
         );
     }
 };
@@ -851,9 +853,9 @@ const handleUnlikeRecipe = async (req, res, next) => {
             error instanceof ApiError
                 ? error
                 : new ApiError(
-                      500,
-                      "Something went wrong while removing from favourites"
-                  )
+                    500,
+                    "Something went wrong while removing from favourites"
+                )
         );
     }
 };
@@ -1088,9 +1090,9 @@ const handleGetSearchRecipe = async (req, res, next) => {
             error instanceof ApiError
                 ? error
                 : new ApiError(
-                      500,
-                      "Something went wrong while searching for recipes."
-                  )
+                    500,
+                    "Something went wrong while searching for recipes."
+                )
         );
     }
 };
@@ -1133,12 +1135,211 @@ const getSimilarRecipes = async (req, res, next) => {
             error instanceof ApiError
                 ? error
                 : new ApiError(
-                      500,
-                      "Something went wrong while fetching similar recipes."
-                  )
+                    500,
+                    "Something went wrong while fetching similar recipes."
+                )
         );
     }
 };
+
+// 1. ADD REVIEW
+const addReview = async (req, res, next) => {
+    try {
+        const { recipeId } = req.params;
+        const { rating, message } = req.body;
+        const userId = req.user._id;
+
+        // Validation
+        if (!mongoose.Types.ObjectId.isValid(recipeId)) {
+            throw new ApiError(400, "Invalid recipe ID format");
+        }
+        if (!rating || rating < 1 || rating > 5) {
+            throw new ApiError(400, "Rating is required and must be between 1 and 5");
+        }
+        if (!message?.trim()) {
+            throw new ApiError(400, "Review message is required");
+        }
+        if (message.length > 1000) {
+            throw new ApiError(400, "Message cannot exceed 1000 characters");
+        }
+
+        let recipeExists = await getCache(`recipe:${recipeId}`);
+
+        if (!recipeExists) {
+            recipeExists = await Recipe.findOne({
+                _id: recipeId,
+                isActive: true,
+            }).select("_id");
+
+            if (!recipeExists) {
+                throw new ApiError(404, "Recipe not found or is inactive");
+            }
+        }
+
+        // Check whether current user already reviewed this recipe
+        const hasReviewed = await Recipe.exists({ _id: recipeId, "reviews.userId": userId });
+        if (hasReviewed) {
+            throw new ApiError(409, "You have already reviewed this recipe");
+        }
+
+        const newReview = {
+            userId,
+            rating,
+            message: message.trim(),
+            createdAt: new Date(),
+            updatedAt: new Date(),
+        };
+
+        // Atomically push review
+        const pushed = await Recipe.findOneAndUpdate(
+            { _id: recipeId, "reviews.userId": { $ne: userId } },
+            { $push: { reviews: newReview } },
+            { new: true }
+        );
+
+        if (!pushed) {
+            throw new ApiError(409, "Review already exists or recipe is unavailable");
+        }
+
+        await deleteCache(`recipe:${recipeId}`)
+        await setCache(`recipe:${recipeId}`, pushed, 3600)
+
+        return res
+            .status(201)
+            .json(new ApiResponse(201, "Review added successfully", pushed.reviews));
+    } catch (error) {
+        console.error("Error adding review:", error);
+        return next(
+            error instanceof ApiError
+                ? error
+                : new ApiError(500, "Something went wrong while adding review")
+        );
+    }
+};
+
+// UPDATE REVIEW
+const updateReview = async (req, res, next) => {
+    try {
+        const { recipeId } = req.params;
+        const { rating, message } = req.body;
+        const userId = req.user._id;
+
+        // Validation
+        if (!mongoose.Types.ObjectId.isValid(recipeId)) {
+            throw new ApiError(400, "Invalid recipe ID format");
+        }
+        if (!rating || rating < 1 || rating > 5) {
+            throw new ApiError(400, "Rating is required and must be between 1 and 5");
+        }
+        if (message !== undefined) {
+            if (!message?.trim()) {
+                throw new ApiError(400, "Review message is required");
+            }
+        }
+        if (message?.length > 1000) {
+            throw new ApiError(400, "Message cannot exceed 1000 characters");
+        }
+
+        // Check if recipe exists and isActive
+        let recipeExists = await getCache(`recipe:${recipeId}`);
+
+        if (!recipeExists) {
+            recipeExists = await Recipe.findOne({
+                _id: recipeId,
+                isActive: true,
+            }).select("_id");
+
+            if (!recipeExists) {
+                throw new ApiError(404, "Recipe not found or is inactive");
+            }
+        }
+
+        // Check whether current user already reviewed this recipe
+        const hasReviewed = await Recipe.exists({ _id: recipeId, "reviews.userId": userId });
+        if (!hasReviewed) {
+            throw new ApiError(404, "Review not found");
+        }
+
+        const updateFields = {
+            "reviews.$.rating": rating,
+            "reviews.$.updatedAt": new Date(),
+        };
+
+        if (message !== undefined) {
+            updateFields["reviews.$.message"] = message.trim();
+        }
+
+        // Update rating, message, and updatedAt
+        const updated = await Recipe.findOneAndUpdate(
+            { _id: recipeId, "reviews.userId": userId },
+            {
+                $set: updateFields
+            },
+            { new: true }
+        );
+
+        if (!updated) {
+            throw new ApiError(404, "Review not found or could not be updated");
+        }
+
+        await deleteCache(`recipe:${recipeId}`)
+        await setCache(`recipe:${recipeId}`, updated, 3600)
+
+        return res
+            .status(200)
+            .json(new ApiResponse(200, "Review updated successfully", updated.reviews));
+    } catch (error) {
+        console.error("Error updating review:", error);
+        return next(
+            error instanceof ApiError
+                ? error
+                : new ApiError(500, "Something went wrong while updating review")
+        );
+    }
+};
+
+// DELETE REVIEW
+const deleteReview = async (req, res, next) => {
+    try {
+        const { recipeId } = req.params;
+        const userId = req.user._id;
+
+        // Check if recipe exists and isActive
+        if (!mongoose.Types.ObjectId.isValid(recipeId)) {
+            throw new ApiError(400, "Invalid recipe ID format");
+        }
+        const recipeExists = await Recipe.findOne({ _id: recipeId, isActive: true }).select("_id");
+        if (!recipeExists) {
+            throw new ApiError(404, "Recipe not found or is inactive");
+        }
+
+        // Verify review exists
+        const reviewExists = await Recipe.exists({ _id: recipeId, "reviews.userId": userId });
+        if (!reviewExists) {
+            throw new ApiError(404, "Review not found");
+        }
+
+        // pull the user's review
+        await Recipe.updateOne(
+            { _id: recipeId },
+            { $pull: { reviews: { userId } } }
+        );
+
+        await deleteCache(`recipe:${recipeId}`)
+
+        return res
+            .status(200)
+            .json(new ApiResponse(200, "Review deleted successfully"));
+    } catch (error) {
+        console.error("Error deleting review:", error);
+        return next(
+            error instanceof ApiError
+                ? error
+                : new ApiError(500, "Something went wrong while deleting review")
+        );
+    }
+};
+
 
 export {
     addRecipe,
@@ -1155,4 +1356,7 @@ export {
     handleUnlikeRecipe,
     handleGetSearchRecipe,
     getSimilarRecipes,
+    addReview,
+    updateReview,
+    deleteReview,
 };

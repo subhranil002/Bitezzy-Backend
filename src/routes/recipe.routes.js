@@ -14,6 +14,9 @@ import {
     handleUnlikeRecipe,
     handleGetSearchRecipe,
     getSimilarRecipes,
+    addReview,
+    updateReview,
+    deleteReview,
 } from "../controllers/recipe.controllers.js";
 import {
     parseRecipeJsonFields,
@@ -52,6 +55,24 @@ recipeRoutes.route("/search").get(rateLimiter(60, 50), handleGetSearchRecipe);
 recipeRoutes.route("/like/:id").get(isLoggedIn, rateLimiter(60, 30), handleLikeRecipe);
 recipeRoutes.route("/unlike/:id").get(isLoggedIn, rateLimiter(60, 30), handleUnlikeRecipe);
 recipeRoutes.route("/similar/:id").get(isLoggedIn, rateLimiter(60, 30), getSimilarRecipes);
+
+recipeRoutes
+    .route("/:recipeId/reviews")
+    .post(
+        isLoggedIn,
+        rateLimiter(60, 10),
+        addReview
+    )
+    .put(
+        isLoggedIn,
+        rateLimiter(60, 10),
+        updateReview
+    )
+    .delete(
+        isLoggedIn,
+        rateLimiter(60, 15),
+        deleteReview
+    );
 
 recipeRoutes
     .route("/:id")

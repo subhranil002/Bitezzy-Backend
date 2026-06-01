@@ -134,14 +134,28 @@ const recipeSchema = new mongoose.Schema(
 
         reviews: [
             {
-                name: String,
+                userId: {
+                    type: mongoose.Schema.Types.ObjectId,
+                    ref: "User",
+                    required: [true, "User ID is required"],
+                },
                 rating: {
                     type: Number,
-                    min: 1,
-                    max: 5,
+                    required: [true, "Rating is required"],
+                    min: [1, "Rating must be at least 1"],
+                    max: [5, "Rating must be at most 5"],
                 },
-                message: String,
+                message: {
+                    type: String,
+                    required: [true, "Review message is required"],
+                    trim: true,
+                    maxlength: [1000, "Review message cannot exceed 1000 characters"],
+                },
                 createdAt: {
+                    type: Date,
+                    default: Date.now,
+                },
+                updatedAt: {
                     type: Date,
                     default: Date.now,
                 },
@@ -181,6 +195,19 @@ const recipeSchema = new mongoose.Schema(
             },
         },
 
+        averageRating: {
+            type: Number,
+            default: 0,
+            min: [0, "Average rating cannot be negative"],
+            max: [5, "Average rating cannot exceed 5"],
+        },
+
+        totalReviews: {
+            type: Number,
+            default: 0,
+            min: [0, "Total reviews cannot be negative"],
+        },
+
         isActive: {
             type: Boolean,
             default: true,
@@ -191,6 +218,8 @@ const recipeSchema = new mongoose.Schema(
         strict: true, // Ignores fields not defined in schema
     }
 );
+
+recipeSchema.index({ "reviews.userId": 1 });
 
 const Recipe = mongoose.model("Recipe", recipeSchema);
 
