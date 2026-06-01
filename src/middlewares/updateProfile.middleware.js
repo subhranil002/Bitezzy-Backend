@@ -35,6 +35,70 @@ const ALLERGENS = [
     "corn",
 ];
 
+const SPECIALITIES = [
+    "indian",
+    "italian",
+    "chinese",
+    "mexican",
+    "thai",
+    "japanese",
+    "french",
+    "mediterranean",
+    "american",
+    "korean",
+    "vietnamese",
+    "middle-eastern",
+    "british",
+    "spanish",
+    "german",
+    "greek",
+];
+
+// educationSchema for validating education data
+const educationSchema = Joi.object({
+    institution: Joi.string().trim().max(100).required(),
+
+    degree: Joi.string().trim().max(100).required(),
+
+    fieldOfStudy: Joi.string().trim().max(100).required(),
+
+    startYear: Joi.number()
+        .integer()
+        .min(1900)
+        .max(new Date().getFullYear())
+        .required(),
+
+    endYear: Joi.number().integer().min(Joi.ref("startYear")).allow(null),
+
+    description: Joi.string().trim().max(500).allow("").optional(),
+});
+
+
+// experienceSchema for validating experience data
+const experienceSchema = Joi.object({
+    title: Joi.string().trim().max(100).required(),
+
+    employmentType: Joi.string().trim().max(50).required(),
+
+    companyOrOrganization: Joi.string().trim().max(100).required(),
+
+    isCurrenltyWorking: Joi.boolean().required(),
+
+    startYear: Joi.number()
+        .integer()
+        .min(1900)
+        .max(new Date().getFullYear())
+        .required(),
+
+    endYear: Joi.alternatives().conditional("isCurrenltyWorking", {
+        is: true,
+        then: Joi.allow(null),
+        otherwise: Joi.number().integer().min(Joi.ref("startYear")).required(),
+    }),
+
+    description: Joi.string().trim().max(500).allow("").optional(),
+});
+
 export const validateUpdateProfile = (req, res, next) => {
     const schema = Joi.object({
         name: Joi.string().trim().min(2).max(50).optional(),
@@ -50,6 +114,25 @@ export const validateUpdateProfile = (req, res, next) => {
             .optional(),
 
         cuisine: Joi.string().trim().optional(),
+
+        // Chef Fields
+        education: Joi.array().items(educationSchema).optional(), // using educationSchema to validate education data
+
+        experience: Joi.array().items(experienceSchema).optional(), // using experienceSchema to validate experience data
+
+        speciality: Joi.string()
+            .valid(...SPECIALITIES)
+            .optional(),
+
+        externalLinks: Joi.array()
+            .items(
+                Joi.string().uri({
+                    scheme: ["http", "https"],
+                })
+            )
+            .optional(),
+
+        subscriptionPrice: Joi.number().integer().min(1).optional(),
     }).min(1); // At least one field required
 
     const { error, value } = schema.validate(req.body, {

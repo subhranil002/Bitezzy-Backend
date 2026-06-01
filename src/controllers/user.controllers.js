@@ -129,8 +129,8 @@ export const handleRegister = async (req, res, next) => {
         error instanceof ApiError
             ? next(error)
             : next(
-                new ApiError(500, "Something went wrong during registration")
-            );
+                  new ApiError(500, "Something went wrong during registration")
+              );
     }
 };
 
@@ -145,8 +145,10 @@ export const handleLogin = async (req, res, next) => {
         }
 
         // validate if user exists
-        let user = await User.findOne({ email: email.toLowerCase(), isActive: true })
-            .select("+password");
+        let user = await User.findOne({
+            email: email.toLowerCase(),
+            isActive: true,
+        }).select("+password");
 
         if (!user) {
             throw new ApiError(
@@ -224,8 +226,8 @@ export const handleGuestLogin = async (req, res, next) => {
         error instanceof ApiError
             ? next(error)
             : next(
-                new ApiError(500, "Something went wrong during guest login")
-            );
+                  new ApiError(500, "Something went wrong during guest login")
+              );
     }
 };
 
@@ -297,10 +299,14 @@ export const handleChangeAvatar = async (req, res, next) => {
         );
 
         await deleteCache(`user:${user._id}:profile`);
-        await setCache(`user:${user._id}:profile`,updatedUser,3600);
+        await setCache(`user:${user._id}:profile`, updatedUser, 3600);
 
         res.status(200).json(
-            new ApiResponse(200, "Avatar Uploaded Successfully", updatedUser?.profile?.avatar)
+            new ApiResponse(
+                200,
+                "Avatar Uploaded Successfully",
+                updatedUser?.profile?.avatar
+            )
         );
     } catch (error) {
         await deleteLocalFile(avatarLocalPath);
@@ -324,10 +330,14 @@ export const handleChangePassword = async (req, res, next) => {
             throw new ApiError("All fields are required", 400);
         }
 
-        const passwordRegex = /^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[^A-Za-z0-9\s])[^\s]{8,64}$/;
+        const passwordRegex =
+            /^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[^A-Za-z0-9\s])[^\s]{8,64}$/;
 
         if (!passwordRegex.test(newPassword)) {
-            throw new ApiError(400, "New password does not meet security requirements");
+            throw new ApiError(
+                400,
+                "New password does not meet security requirements"
+            );
         }
 
         const user = await User.findById(req.user._id).select("+password");
@@ -410,11 +420,11 @@ export const handleForgetPassword = async (req, res, next) => {
         error instanceof ApiError
             ? next(error)
             : next(
-                new ApiError(
-                    500,
-                    "Something went wrong during while sending reset password link"
-                )
-            );
+                  new ApiError(
+                      500,
+                      "Something went wrong during while sending reset password link"
+                  )
+              );
     }
 };
 
@@ -425,10 +435,14 @@ export const handleResetPassword = async (req, res, next) => {
             throw new ApiError(400, "All fields are required");
         }
 
-        const passwordRegex = /^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[^A-Za-z0-9\s])[^\s]{8,64}$/;
+        const passwordRegex =
+            /^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[^A-Za-z0-9\s])[^\s]{8,64}$/;
 
         if (!passwordRegex.test(password)) {
-            throw new ApiError(400, "New password does not meet security requirements");
+            throw new ApiError(
+                400,
+                "New password does not meet security requirements"
+            );
         }
 
         // generate hash of reset token to check in db
@@ -458,11 +472,11 @@ export const handleResetPassword = async (req, res, next) => {
         error instanceof ApiError
             ? next(error)
             : next(
-                new ApiError(
-                    500,
-                    "Something went wrong during password reset"
-                )
-            );
+                  new ApiError(
+                      500,
+                      "Something went wrong during password reset"
+                  )
+              );
     }
 };
 
@@ -526,14 +540,21 @@ export const handleGetMySubscriptions = async (req, res, next) => {
         return res
             .status(200)
             .json(
-                new ApiResponse(200, "Subscriptions Fetched Successfully", subscriptions)
+                new ApiResponse(
+                    200,
+                    "Subscriptions Fetched Successfully",
+                    subscriptions
+                )
             );
     } catch (error) {
         if (error instanceof ApiError) {
             return next(error);
         }
         return next(
-            new ApiError(500, "Something went wrong during fetching subscriptions")
+            new ApiError(
+                500,
+                "Something went wrong during fetching subscriptions"
+            )
         );
     }
 };
@@ -591,7 +612,7 @@ export const handleUpdateProfile = async (req, res, next) => {
         const chefFieldMap = {
             education: "chefProfile.education",
             experience: "chefProfile.experience",
-            culinarySpeciality: "chefProfile.culinarySpeciality",
+            culinarySpeciality: "chefProfile.speciality",
             subscriptionPrice: "chefProfile.subscriptionPrice",
             externalLinks: "chefProfile.externalLinks",
         };
@@ -605,6 +626,13 @@ export const handleUpdateProfile = async (req, res, next) => {
 
         const updates = {};
 
+        let newSubscriptionPrice = null;
+
+        // getting new price if user is chef and updating subscription price
+        if (user.role === "chef" && req.body.subscriptionPrice !== undefined) {
+            newSubscriptionPrice = Number(req.body.subscriptionPrice);
+        }
+
         // Only allow valid fields
         for (const key in req.body) {
             if (allowedFieldMap[key]) {
@@ -612,9 +640,37 @@ export const handleUpdateProfile = async (req, res, next) => {
             }
         }
 
+        // getting old price from the db
+        const oldSubscriptionPrice = Number(
+            user?.chefProfile?.subscriptionPrice
+        );
+
+        // checking if price has changed
+        const isSubscriptionPriceChanged =
+            user.role === "chef" &&
+            newSubscriptionPrice !== null &&
+            oldSubscriptionPrice !== newSubscriptionPrice;
+
         // prevent empty updates
         if (Object.keys(updates).length === 0) {
             throw new ApiError(400, "No valid fields provided for update");
+        }
+
+        // if price has changed, create new plan
+        if (isSubscriptionPriceChanged) {
+            const plan = await razorpayInstance.plans.create({
+                period: "monthly",
+                interval: 1,
+                item: {
+                    name: `${user.profile.name} Subscription`,
+                    amount: newSubscriptionPrice * 100,
+                    currency: "INR",
+                    description: `Monthly subscription for ${user.profile.name}`,
+                },
+            });
+
+            // save plan id in db
+            updates["chefProfile.razorpayPlanId"] = plan.id;
         }
 
         const updatedUser = await User.findOneAndUpdate(
@@ -630,7 +686,7 @@ export const handleUpdateProfile = async (req, res, next) => {
         const cacheKey = `user:${user._id}:profile`;
         await deleteCache(cacheKey);
         await setCache(cacheKey, updatedUser, 3600);
-        
+
         return res
             .status(200)
             .json(
@@ -655,8 +711,9 @@ export const handleGetUserById = async (req, res, next) => {
             user = await User.findOne({
                 _id: userId,
                 isActive: true,
-            })
-                .select("-email -password -forgotPasswordToken -forgotPasswordExpiry");
+            }).select(
+                "-email -password -forgotPasswordToken -forgotPasswordExpiry"
+            );
 
             if (!user) {
                 throw new ApiError(404, "User not found");
@@ -704,14 +761,21 @@ export const handleGetUserSubscriptionsById = async (req, res, next) => {
         return res
             .status(200)
             .json(
-                new ApiResponse(200, "Subscriptions fetched successfully", subscriptions)
+                new ApiResponse(
+                    200,
+                    "Subscriptions fetched successfully",
+                    subscriptions
+                )
             );
     } catch (error) {
         if (error instanceof ApiError) {
             return next(error);
         }
         return next(
-            new ApiError(500, "Something went wrong during fetching user subscriptions")
+            new ApiError(
+                500,
+                "Something went wrong during fetching user subscriptions"
+            )
         );
     }
 };
@@ -749,7 +813,10 @@ export const handleGetUserRecipesById = async (req, res, next) => {
             return next(error);
         }
         return next(
-            new ApiError(500, "Something went wrong during fetching user recipes")
+            new ApiError(
+                500,
+                "Something went wrong during fetching user recipes"
+            )
         );
     }
 };
@@ -784,11 +851,11 @@ export const handleContactus = async (req, res, next) => {
         error instanceof ApiError
             ? next(error)
             : next(
-                new ApiError(
-                    500,
-                    "Something went wrong during sending conatct us message"
-                )
-            );
+                  new ApiError(
+                      500,
+                      "Something went wrong during sending conatct us message"
+                  )
+              );
     }
 };
 
@@ -825,11 +892,11 @@ export const handleGetFavourites = async (req, res, next) => {
         error instanceof ApiError
             ? next(error)
             : next(
-                new ApiError(
-                    500,
-                    "Something went wrong during fetching favourites"
-                )
-            );
+                  new ApiError(
+                      500,
+                      "Something went wrong during fetching favourites"
+                  )
+              );
     }
 };
 
@@ -849,13 +916,20 @@ export const handleSubscribeToChef = async (req, res, next) => {
         }
 
         const user = await User.findOneAndUpdate(
-            { _id: userId, isActive: true, "profile.subscribed": { $ne: chefId } },
+            {
+                _id: userId,
+                isActive: true,
+                "profile.subscribed": { $ne: chefId },
+            },
             { $addToSet: { "profile.subscribed": chefId } },
             { new: true }
         );
 
         if (!user) {
-            const userExists = await User.findOne({ _id: userId, isActive: true });
+            const userExists = await User.findOne({
+                _id: userId,
+                isActive: true,
+            });
             if (!userExists) throw new ApiError(404, "User not found");
             throw new ApiError(400, "Already subscribed to this chef");
         }
@@ -881,11 +955,11 @@ export const handleSubscribeToChef = async (req, res, next) => {
         error instanceof ApiError
             ? next(error)
             : next(
-                new ApiError(
-                    500,
-                    "Something went wrong during subscribing chef"
-                )
-            );
+                  new ApiError(
+                      500,
+                      "Something went wrong during subscribing chef"
+                  )
+              );
     }
 };
 
@@ -931,10 +1005,10 @@ export const handleUnsubscribeFromChef = async (req, res, next) => {
         error instanceof ApiError
             ? next(error)
             : next(
-                new ApiError(
-                    500,
-                    "Something went wrong during unsubscribing chef"
-                )
-            );
+                  new ApiError(
+                      500,
+                      "Something went wrong during unsubscribing chef"
+                  )
+              );
     }
 };

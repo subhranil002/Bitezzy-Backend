@@ -221,6 +221,7 @@ const userSchema = new mongoose.Schema(
                     ref: "User",
                 },
             ],
+            
             razorpayPlanId: {
                 type: String,
             },
