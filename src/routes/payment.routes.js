@@ -9,9 +9,9 @@ import { isAuthorized, isLoggedIn } from "../middlewares/auth.middlewares.js";
 
 const paymentRoutes = Router();
 
-paymentRoutes
-    .route("/create-plan")
-    .post(isLoggedIn, isAuthorized("CHEF", "ADMIN"), handleCreatePlan);
+// paymentRoutes
+//     .route("/create-plan")
+//     .post(isLoggedIn, isAuthorized("CHEF", "ADMIN"), handleCreatePlan);
 
 paymentRoutes
     .route("/create-subscription")

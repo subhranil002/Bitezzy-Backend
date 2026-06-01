@@ -900,6 +900,7 @@ export const handleGetFavourites = async (req, res, next) => {
     }
 };
 
+/*
 export const handleSubscribeToChef = async (req, res, next) => {
     try {
         const { chefId } = req.params;
@@ -962,7 +963,9 @@ export const handleSubscribeToChef = async (req, res, next) => {
               );
     }
 };
+*/
 
+/*
 export const handleUnsubscribeFromChef = async (req, res, next) => {
     try {
         const { chefId } = req.params;
@@ -1012,3 +1015,4 @@ export const handleUnsubscribeFromChef = async (req, res, next) => {
               );
     }
 };
+*/

@@ -14,8 +14,8 @@ import {
     handleGetUserById,
     handleGetUserSubscriptionsById,
     handleGetUserRecipesById,
-    handleSubscribeToChef,
-    handleUnsubscribeFromChef,
+    // handleSubscribeToChef,
+    // handleUnsubscribeFromChef,
     handleGetFavourites,
     handleContactus,
     handleGuestLogin,
@@ -55,9 +55,9 @@ userRoutes.route("/:id/recipes").get(rateLimiter(60, 30), handleGetUserRecipesBy
 userRoutes.route("/contact").post(isLoggedIn, rateLimiter(60, 5), handleContactus);
 
 // subscription routes
-userRoutes.route("/subscribe/:chefId").get(isLoggedIn, rateLimiter(60, 15), handleSubscribeToChef);
-userRoutes
-    .route("/unsubscribe/:chefId")
-    .get(isLoggedIn, rateLimiter(60, 15), handleUnsubscribeFromChef);
+// userRoutes.route("/subscribe/:chefId").get(isLoggedIn, rateLimiter(60, 15), handleSubscribeToChef);
+// userRoutes
+//     .route("/unsubscribe/:chefId")
+//     .get(isLoggedIn, rateLimiter(60, 15), handleUnsubscribeFromChef);
 
 export default userRoutes;
