@@ -695,8 +695,7 @@ const HandleGetPremiumRecipes = async (req, res, next) => {
 
 const HandleGetRecommendedRecipes = async (req, res, next) => {
     try {
-        const { rawLimit = 10 } = req.query;
-        const limit = Number(rawLimit) || 10;
+        const limit = req.query.limit ? Number(req.query.limit) : 10;
         const userId = req?.user?._id?.toString() || "guest";
         const cacheKey = `feed:recommended:${userId}:${limit}`;
 

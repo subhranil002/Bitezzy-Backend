@@ -18,6 +18,7 @@ import {
     forgotPasswordTemplate,
     welcomeTemplate,
 } from "../emailTemplates/index.js";
+import razorpayInstance from "../configs/razorpay.configs.js";
 
 export const handleRegister = async (req, res, next) => {
     try {
@@ -620,7 +621,7 @@ export const handleUpdateProfile = async (req, res, next) => {
         // Decide allowed fields based on role
         let allowedFieldMap = { ...baseFieldMap };
 
-        if (user.role === "chef") {
+        if (user.role === "CHEF") {
             allowedFieldMap = { ...baseFieldMap, ...chefFieldMap };
         }
 
@@ -629,7 +630,7 @@ export const handleUpdateProfile = async (req, res, next) => {
         let newSubscriptionPrice = null;
 
         // getting new price if user is chef and updating subscription price
-        if (user.role === "chef" && req.body.subscriptionPrice !== undefined) {
+        if (user.role === "CHEF" && req.body.subscriptionPrice !== undefined) {
             newSubscriptionPrice = Number(req.body.subscriptionPrice);
         }
 
@@ -647,7 +648,7 @@ export const handleUpdateProfile = async (req, res, next) => {
 
         // checking if price has changed
         const isSubscriptionPriceChanged =
-            user.role === "chef" &&
+            user.role === "CHEF" &&
             newSubscriptionPrice !== null &&
             oldSubscriptionPrice !== newSubscriptionPrice;
 
@@ -672,7 +673,7 @@ export const handleUpdateProfile = async (req, res, next) => {
             // save plan id in db
             updates["chefProfile.razorpayPlanId"] = plan.id;
         }
-
+        // console.log(updates);
         const updatedUser = await User.findOneAndUpdate(
             { _id: user._id, isActive: true },
             { $set: updates },
@@ -693,6 +694,7 @@ export const handleUpdateProfile = async (req, res, next) => {
                 new ApiResponse(200, "User updated successfully", updatedUser)
             );
     } catch (error) {
+        console.log("Some error occured: ", error);
         if (error instanceof ApiError) {
             return next(error);
         }
