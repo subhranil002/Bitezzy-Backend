@@ -613,7 +613,7 @@ export const handleUpdateProfile = async (req, res, next) => {
         const chefFieldMap = {
             education: "chefProfile.education",
             experience: "chefProfile.experience",
-            culinarySpeciality: "chefProfile.speciality",
+            speciality: "chefProfile.speciality",
             subscriptionPrice: "chefProfile.subscriptionPrice",
             externalLinks: "chefProfile.externalLinks",
         };

@@ -7,18 +7,14 @@ import { recipeQueue } from "../configs/queue.config.js";
 import { uuid } from "zod/v4";
 import { getCache, setCache, deleteCache } from "../utils/redisUtils.js";
 
-// CREATE Recipe
+// create Recipe
 const addRecipe = async (req, res, next) => {
     try {
-        /** ============================
-         * 1️⃣ Extract files
-         * ============================ */
+        // Step 1: Extract files
         const thumbnailFile = req.files?.thumbnailFile?.[0];
         const stepImagesFiles = req.files?.stepImages || [];
 
-        /** ============================
-         * 2️⃣ Validate images
-         * ============================ */
+        // Step 2: Validate images
         // Thumbnail validation
         if (!thumbnailFile) {
             throw new ApiError(400, "Thumbnail image is required");
@@ -35,11 +31,7 @@ const addRecipe = async (req, res, next) => {
             );
         }
 
-        /**
-         * ============================
-         * 3️⃣ Add recipe to queue
-         * ============================
-         */
+        // Step 3: Add recipe to queue
         await recipeQueue.add(
             "recipe-queue",
             {
@@ -54,11 +46,7 @@ const addRecipe = async (req, res, next) => {
             { removeOnComplete: true, removeOnFail: true }
         );
 
-        /**
-         * ============================
-         * 4️⃣ Return immediately
-         * ============================
-         */
+        // Step 4: Return response immediately
         return res
             .status(202)
             .json(
@@ -248,7 +236,6 @@ const getAllRecipes = async (req, res, next) => {
     }
 };
 
-// READ Single Recipe (OK)
 const getRecipeById = async (req, res, next) => {
     try {
         const cacheKey = `recipe:${req.params.id}`;
