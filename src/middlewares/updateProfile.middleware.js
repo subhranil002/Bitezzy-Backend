@@ -89,7 +89,7 @@ const experienceSchema = Joi.object({
         .max(new Date().getFullYear())
         .required(),
 
-    endYear: joi.number()
+    endYear: Joi.number()
     .integer()
     .min(Joi.ref("startYear"))
     .max(new Date().getFullYear())
