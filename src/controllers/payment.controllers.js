@@ -171,7 +171,7 @@ export const handleWebhook = async (req, res, next) => {
 
                 // Prevent duplicate payment save
                 const existingPayment = await Payment.findOne({
-                    razorpayPaymentId,
+                    razorpayPaymentId: paymentEntity.id,
                 });
 
                 if (existingPayment) {
