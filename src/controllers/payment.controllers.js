@@ -191,32 +191,32 @@ export const handleWebhook = async (req, res, next) => {
                 console.log("Payment created successfully: ", payment);
 
                 // Add chef to user's subscribed list
-                const user = await User.findOneAndUpdate(
-                    {
-                        _id: userId,
-                        isActive: true,
-                    },
-                    {
-                        $addToSet: {
-                            "profile.subscribed": chefId,
-                        },
-                    }
-                );
-                console.log("User subscribed: ", user.profile.subscribed);
+                // const user = await User.findOneAndUpdate(
+                //     {
+                //         _id: userId,
+                //         isActive: true,
+                //     },
+                //     {
+                //         $addToSet: {
+                //             "profile.subscribed": chefId,
+                //         },
+                //     }
+                // );
+                // console.log("User subscribed: ", user.profile.subscribed);
 
-                // Add user to chef subscribers
-                const chef = await User.findOneAndUpdate(
-                    {
-                        _id: chefId,
-                        isActive: true,
-                    },
-                    {
-                        $addToSet: {
-                            "chefProfile.subscribers": userId,
-                        },
-                    }
-                );
-                console.log("Chef subscribers: ", chef.chefProfile.subscribers);
+                // // Add user to chef subscribers
+                // const chef = await User.findOneAndUpdate(
+                //     {
+                //         _id: chefId,
+                //         isActive: true,
+                //     },
+                //     {
+                //         $addToSet: {
+                //             "chefProfile.subscribers": userId,
+                //         },
+                //     }
+                // );
+                // console.log("Chef subscribers: ", chef.chefProfile.subscribers);
                 break;
             }
             case "payment.failed": {
@@ -226,6 +226,8 @@ export const handleWebhook = async (req, res, next) => {
             }
             case "subscription.activated": {
                 const subscriptionEntity = payload.payload.subscription?.entity;
+
+                console.log("Subscription Entity", subscriptionEntity);
 
                 const {
                     id: razorpaySubscriptionId,
