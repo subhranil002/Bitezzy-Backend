@@ -166,29 +166,29 @@ export const handleWebhook = async (req, res, next) => {
                 // }
 
                 // Prevent duplicate payment save
-                const existingPayment = await Payment.findOne({
-                    razorpayPaymentId,
-                });
+                // const existingPayment = await Payment.findOne({
+                //     razorpayPaymentId,
+                // });
 
-                if (existingPayment) {
-                    break;
-                }
+                // if (existingPayment) {
+                //     break;
+                // }
 
-                const payment = await Payment.create({
-                    razorpayPaymentId,
-                    // razorpaySubscriptionId,
-                    razorpaySignature,
-                    // purchasedBy: userId,
-                    // chef: chefId,
-                    amount: amount / 100,
-                    currency,
-                    status, // payment status
-                    // subscriptionStatus: "active", // subscription status
-                });
+                // const payment = await Payment.create({
+                //     razorpayPaymentId,
+                //     // razorpaySubscriptionId,
+                //     razorpaySignature,
+                //     // purchasedBy: userId,
+                //     // chef: chefId,
+                //     amount: amount / 100,
+                //     currency,
+                //     status, // payment status
+                //     // subscriptionStatus: "active", // subscription status
+                // });
 
                 // await payment.save();
 
-                console.log("Payment created successfully: ", payment);
+                // console.log("Payment created successfully: ", payment);
 
                 // Add chef to user's subscribed list
                 // const user = await User.findOneAndUpdate(
