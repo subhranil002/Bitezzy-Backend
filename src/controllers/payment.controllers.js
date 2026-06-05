@@ -1,7 +1,7 @@
 import { ApiResponse, ApiError } from "../utils/index.js";
 import razorpayInstance from "../configs/razorpay.configs.js";
 import User from "../models/user.models.js";
-import Payment from "../models/payment.models.js";
+import Payment from "../models/payment.models.js"; // payment model
 import constants from "../constants.js";
 import crypto from "crypto";
 
@@ -167,7 +167,7 @@ export const handleWebhook = async (req, res, next) => {
                     break;
                 }
 
-                await Payment.create({
+                const payment = await Payment.create({
                     razorpayPaymentId,
                     razorpaySubscriptionId,
                     razorpaySignature,
@@ -178,6 +178,8 @@ export const handleWebhook = async (req, res, next) => {
                     status, // payment status
                     subscriptionStatus: "active", // subscription status
                 });
+
+                console.log("Payment created successfully: ", payment);
 
                 // Add chef to user's subscribed list
                 await User.findOneAndUpdate(

@@ -73,7 +73,6 @@ const educationSchema = Joi.object({
     description: Joi.string().trim().max(500).allow("").optional(),
 });
 
-
 // experienceSchema for validating experience data
 const experienceSchema = Joi.object({
     title: Joi.string().trim().max(100).required(),
@@ -82,7 +81,7 @@ const experienceSchema = Joi.object({
 
     companyOrOrganization: Joi.string().trim().max(100).required(),
 
-    isCurrenltyWorking: Joi.boolean().required(),
+    isCurrenltyWorking: Joi.boolean().optional(),
 
     startYear: Joi.number()
         .integer()
@@ -90,11 +89,11 @@ const experienceSchema = Joi.object({
         .max(new Date().getFullYear())
         .required(),
 
-    endYear: Joi.alternatives().conditional("isCurrenltyWorking", {
-        is: true,
-        then: Joi.allow(null),
-        otherwise: Joi.number().integer().min(Joi.ref("startYear")).required(),
-    }),
+    endYear: joi.number()
+    .integer()
+    .min(Joi.ref("startYear"))
+    .max(new Date().getFullYear())
+    .optional(),
 
     description: Joi.string().trim().max(500).allow("").optional(),
 });
