@@ -137,13 +137,15 @@ export const handleWebhook = async (req, res, next) => {
         // Event type
         const event = payload.event;
 
+        console.log("event name:", event);
+
         switch (event) {
             // Payment Success
             case "payment.captured": {
                 const paymentEntity = payload.payload.payment?.entity;
                 const {
                     id: razorpayPaymentId,
-                    subscription_id: razorpaySubscriptionId,
+                    // subscription_id: razorpaySubscriptionId,
                     amount,
                     currency,
                     status,
@@ -153,15 +155,15 @@ export const handleWebhook = async (req, res, next) => {
 
                 console.log("Payment Entity", paymentEntity);
 
-                const userId = paymentEntity.notes?.userId;
-                const chefId = paymentEntity.notes?.chefId;
+                // const userId = paymentEntity.notes?.userId;
+                // const chefId = paymentEntity.notes?.chefId;
 
-                console.log("User ID", userId);
-                console.log("Chef ID", chefId);
+                // console.log("User ID", userId);
+                // console.log("Chef ID", chefId);
 
-                if (!userId || !chefId) {
-                    break;
-                }
+                // if (!userId || !chefId) {
+                //     break;
+                // }
 
                 // Prevent duplicate payment save
                 const existingPayment = await Payment.findOne({
@@ -174,17 +176,17 @@ export const handleWebhook = async (req, res, next) => {
 
                 const payment = await Payment.create({
                     razorpayPaymentId,
-                    razorpaySubscriptionId,
+                    // razorpaySubscriptionId,
                     razorpaySignature,
-                    purchasedBy: userId,
-                    chef: chefId,
+                    // purchasedBy: userId,
+                    // chef: chefId,
                     amount: amount / 100,
                     currency,
                     status, // payment status
-                    subscriptionStatus: "active", // subscription status
+                    // subscriptionStatus: "active", // subscription status
                 });
 
-                await payment.save();
+                // await payment.save();
 
                 console.log("Payment created successfully: ", payment);
 
