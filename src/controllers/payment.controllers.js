@@ -1,6 +1,6 @@
 import { ApiResponse, ApiError } from "../utils/index.js";
 import razorpayInstance from "../configs/razorpay.configs.js";
-import User from "../models/user.models.js";
+import User from "../models/user.models.js"; // user model
 import Payment from "../models/payment.models.js"; // payment model
 import constants from "../constants.js";
 import crypto from "crypto";
@@ -149,10 +149,13 @@ export const handleWebhook = async (req, res, next) => {
                     status,
                 } = paymentEntity;
 
-                console.log(payload.payload.payment?.entity);
+                // console.log(payload.payload.payment?.entity);
 
                 const userId = paymentEntity.notes?.userId;
                 const chefId = paymentEntity.notes?.chefId;
+
+                console.log("User ID", userId);
+                console.log("Chef ID", chefId);
 
                 if (!userId || !chefId) {
                     break;
@@ -179,10 +182,12 @@ export const handleWebhook = async (req, res, next) => {
                     subscriptionStatus: "active", // subscription status
                 });
 
+                await payment.save();
+
                 console.log("Payment created successfully: ", payment);
 
                 // Add chef to user's subscribed list
-                await User.findOneAndUpdate(
+                const user = await User.findOneAndUpdate(
                     {
                         _id: userId,
                         isActive: true,
@@ -193,9 +198,10 @@ export const handleWebhook = async (req, res, next) => {
                         },
                     }
                 );
+                console.log("User subscribed: ", user.profile.subscribed);
 
                 // Add user to chef subscribers
-                await User.findOneAndUpdate(
+                const chef = await User.findOneAndUpdate(
                     {
                         _id: chefId,
                         isActive: true,
@@ -206,6 +212,7 @@ export const handleWebhook = async (req, res, next) => {
                         },
                     }
                 );
+                console.log("Chef subscribers: ", chef.chefProfile.subscribers);
                 break;
             }
             case "payment.failed": {
