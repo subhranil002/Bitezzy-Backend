@@ -92,6 +92,21 @@ export const handleCreateSubscription = async (req, res, next) => {
             },
         });
 
+        // saving subscription id in DB
+        const payment = await Payment.create({
+            razorpayPaymentId: `pending_${subscription.id}`,
+            razorpaySubscriptionId: subscription.id,
+            purchasedBy: req.user._id, // user who wants to subscribe
+            chef: chefId, // chef who is subscribed
+            amount: chef.chefProfile.subscriptionPrice,
+            currency: "INR",
+            status: "created",
+            subscriptionStatus: "pending",
+            razorpaySignature: "pending",
+        });
+
+        // console.log("Payment created successfully: ", payment);
+
         return res
             .status(201)
             .json(
@@ -145,7 +160,6 @@ export const handleWebhook = async (req, res, next) => {
                 const paymentEntity = payload.payload.payment?.entity;
                 const {
                     id: razorpayPaymentId,
-                    // subscription_id: razorpaySubscriptionId,
                     amount,
                     currency,
                     status,
@@ -153,38 +167,32 @@ export const handleWebhook = async (req, res, next) => {
 
                 // console.log(payload.payload.payment?.entity);
 
-                console.log("Payment Entity", paymentEntity);
-
-                // const userId = paymentEntity.notes?.userId;
-                // const chefId = paymentEntity.notes?.chefId;
-
-                // console.log("User ID", userId);
-                // console.log("Chef ID", chefId);
-
-                // if (!userId || !chefId) {
-                //     break;
-                // }
+                // console.log("Payment Entity", paymentEntity);
 
                 // Prevent duplicate payment save
-                // const existingPayment = await Payment.findOne({
-                //     razorpayPaymentId,
-                // });
+                const existingPayment = await Payment.findOne({
+                    razorpayPaymentId,
+                });
 
-                // if (existingPayment) {
-                //     break;
-                // }
+                if (existingPayment) {
+                    break;
+                }
 
-                // const payment = await Payment.create({
-                //     razorpayPaymentId,
-                //     // razorpaySubscriptionId,
-                //     razorpaySignature,
-                //     // purchasedBy: userId,
-                //     // chef: chefId,
-                //     amount: amount / 100,
-                //     currency,
-                //     status, // payment status
-                //     // subscriptionStatus: "active", // subscription status
-                // });
+                const invoice = await razorpayInstance.invoices.fetch(
+                    paymentEntity.invoice_id
+                );
+
+                console.log(invoice);
+
+                // await Payment.findOneAndUpdate(
+                //     {
+                //         razorpaySubscriptionId: subscriptionId,
+                //     },
+                //     {
+                //         razorpayPaymentId: paymentEntity.id,
+                //         status: "captured",
+                //     }
+                // );
 
                 // await payment.save();
 
@@ -227,7 +235,7 @@ export const handleWebhook = async (req, res, next) => {
             case "subscription.activated": {
                 const subscriptionEntity = payload.payload.subscription?.entity;
 
-                console.log("Subscription Entity", subscriptionEntity);
+                // console.log("Subscription Entity", subscriptionEntity);
 
                 const {
                     id: razorpaySubscriptionId,
