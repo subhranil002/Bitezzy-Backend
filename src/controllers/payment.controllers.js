@@ -151,6 +151,8 @@ export const handleWebhook = async (req, res, next) => {
 
                 // console.log(payload.payload.payment?.entity);
 
+                console.log("Payment Entity", paymentEntity);
+
                 const userId = paymentEntity.notes?.userId;
                 const chefId = paymentEntity.notes?.chefId;
 
