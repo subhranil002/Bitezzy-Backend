@@ -100,7 +100,7 @@ export const handleCreateSubscription = async (req, res, next) => {
             chef: chefId, // chef who is subscribed
             amount: chef.chefProfile.subscriptionPrice,
             currency: "INR",
-            status: "created",
+            paymentStatus: "created",
             subscriptionStatus: "pending",
             razorpaySignature: "pending",
         });
@@ -158,12 +158,12 @@ export const handleWebhook = async (req, res, next) => {
             // Payment Success
             case "payment.captured": {
                 const paymentEntity = payload.payload.payment?.entity;
-                const {
-                    id: razorpayPaymentId,
-                    amount,
-                    currency,
-                    status,
-                } = paymentEntity;
+                // const {
+                //     id: razorpayPaymentId,
+                //     amount,
+                //     currency,
+                //     status,
+                // } = paymentEntity;
 
                 // console.log(payload.payload.payment?.entity);
 
@@ -182,17 +182,19 @@ export const handleWebhook = async (req, res, next) => {
                     paymentEntity.invoice_id
                 );
 
-                console.log(invoice);
+                // console.log(invoice);
 
-                // await Payment.findOneAndUpdate(
-                //     {
-                //         razorpaySubscriptionId: subscriptionId,
-                //     },
-                //     {
-                //         razorpayPaymentId: paymentEntity.id,
-                //         status: "captured",
-                //     }
-                // );
+                await Payment.findOneAndUpdate(
+                    {
+                        razorpaySubscriptionId: invoice.subscription_id,
+                    },
+                    {
+                        razorpayPaymentId: paymentEntity.id,
+                        amount: paymentEntity.amount / 100,
+                        currency: paymentEntity.currency,
+                        paymentStatus: paymentEntity.status,
+                    }
+                );
 
                 // await payment.save();
 

@@ -51,7 +51,7 @@ const paymentSchema = new mongoose.Schema(
         },
 
         // Payment status
-        status: {
+        paymentStatus: {
             type: String,
             enum: ["created", "authorized", "captured", "failed", "refunded"],
             default: "created",
