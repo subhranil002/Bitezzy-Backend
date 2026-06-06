@@ -19,6 +19,10 @@ import {
     handleGetFavourites,
     handleContactus,
     handleGuestLogin,
+    addChefReview,
+    updateChefReview,
+    deleteChefReview,
+    getAllReviews,
 } from "../controllers/user.controllers.js";
 import { isLoggedIn } from "../middlewares/auth.middlewares.js";
 import upload from "../middlewares/multer.middlewares.js";
@@ -59,5 +63,13 @@ userRoutes.route("/contact").post(isLoggedIn, rateLimiter(60, 5), handleContactu
 // userRoutes
 //     .route("/unsubscribe/:chefId")
 //     .get(isLoggedIn, rateLimiter(60, 15), handleUnsubscribeFromChef);
+
+// chef review routes
+userRoutes
+    .route("/:chefId/reviews")
+    .get(rateLimiter(60, 30), getAllReviews)
+    .post(isLoggedIn, rateLimiter(60, 10), addChefReview)
+    .put(isLoggedIn, rateLimiter(60, 10), updateChefReview)
+    .delete(isLoggedIn, rateLimiter(60, 15), deleteChefReview);
 
 export default userRoutes;

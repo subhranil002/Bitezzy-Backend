@@ -208,20 +208,48 @@ const userSchema = new mongoose.Schema(
                 },
             ],
 
+            averageRating: {
+                type: Number,
+                default: 0,
+                min: 0,
+                max: 5,
+            },
             reviews: [
                 {
-                    name: String,
-                    message: String,
+                    userId: {
+                        type: mongoose.Schema.Types.ObjectId,
+                        ref: "User",
+                        required: true,
+                    },
+                    rating: {
+                        type: Number,
+                        required: true,
+                        min: 1,
+                        max: 5,
+                    },
+                    message: {
+                        type: String,
+                        required: true,
+                        trim: true,
+                        maxlength: 1000,
+                    },
+                    createdAt: {
+                        type: Date,
+                        default: Date.now,
+                    },
+                    updatedAt: {
+                        type: Date,
+                        default: Date.now,
+                    },
                 },
             ],
-
             subscribers: [
                 {
                     type: mongoose.Schema.Types.ObjectId,
                     ref: "User",
                 },
             ],
-            
+
             razorpayPlanId: {
                 type: String,
             },
@@ -237,19 +265,30 @@ const userSchema = new mongoose.Schema(
 
         reviewsGiven: [
             {
-                recipeId: {
+                targetType: {
+                    type: String,
+                    enum: ["RECIPE", "CHEF"],
+                    required: true,
+                },
+                targetId: {
                     type: mongoose.Schema.Types.ObjectId,
-                    ref: "Recipe",
+                    required: true,
                 },
                 rating: {
                     type: Number,
-                    min: [1, "Rating must be at least 1"],
-                    max: [5, "Rating must be at most 5"],
+                    min: 1,
+                    max: 5,
+                    required: true,
                 },
                 message: {
                     type: String,
+                    trim: true,
                 },
                 createdAt: {
+                    type: Date,
+                    default: Date.now,
+                },
+                updatedAt: {
                     type: Date,
                     default: Date.now,
                 },

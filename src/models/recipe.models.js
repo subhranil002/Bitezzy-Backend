@@ -202,12 +202,6 @@ const recipeSchema = new mongoose.Schema(
             max: [5, "Average rating cannot exceed 5"],
         },
 
-        totalReviews: {
-            type: Number,
-            default: 0,
-            min: [0, "Total reviews cannot be negative"],
-        },
-
         isActive: {
             type: Boolean,
             default: true,
