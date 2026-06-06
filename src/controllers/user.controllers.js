@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import mongoose from "mongoose";
 import User from "../models/user.models.js";
 import {
     ApiResponse,
@@ -19,6 +20,7 @@ import {
     welcomeTemplate,
 } from "../emailTemplates/index.js";
 import razorpayInstance from "../configs/razorpay.configs.js";
+import { recalculateChefRatings } from "../utils/recalculateRecipeRatings.js";
 
 export const handleRegister = async (req, res, next) => {
     try {
@@ -130,8 +132,8 @@ export const handleRegister = async (req, res, next) => {
         error instanceof ApiError
             ? next(error)
             : next(
-                  new ApiError(500, "Something went wrong during registration")
-              );
+                new ApiError(500, "Something went wrong during registration")
+            );
     }
 };
 
@@ -227,8 +229,8 @@ export const handleGuestLogin = async (req, res, next) => {
         error instanceof ApiError
             ? next(error)
             : next(
-                  new ApiError(500, "Something went wrong during guest login")
-              );
+                new ApiError(500, "Something went wrong during guest login")
+            );
     }
 };
 
@@ -421,11 +423,11 @@ export const handleForgetPassword = async (req, res, next) => {
         error instanceof ApiError
             ? next(error)
             : next(
-                  new ApiError(
-                      500,
-                      "Something went wrong during while sending reset password link"
-                  )
-              );
+                new ApiError(
+                    500,
+                    "Something went wrong during while sending reset password link"
+                )
+            );
     }
 };
 
@@ -473,11 +475,11 @@ export const handleResetPassword = async (req, res, next) => {
         error instanceof ApiError
             ? next(error)
             : next(
-                  new ApiError(
-                      500,
-                      "Something went wrong during password reset"
-                  )
-              );
+                new ApiError(
+                    500,
+                    "Something went wrong during password reset"
+                )
+            );
     }
 };
 
@@ -853,11 +855,11 @@ export const handleContactus = async (req, res, next) => {
         error instanceof ApiError
             ? next(error)
             : next(
-                  new ApiError(
-                      500,
-                      "Something went wrong during sending conatct us message"
-                  )
-              );
+                new ApiError(
+                    500,
+                    "Something went wrong during sending conatct us message"
+                )
+            );
     }
 };
 
@@ -894,11 +896,11 @@ export const handleGetFavourites = async (req, res, next) => {
         error instanceof ApiError
             ? next(error)
             : next(
-                  new ApiError(
-                      500,
-                      "Something went wrong during fetching favourites"
-                  )
-              );
+                new ApiError(
+                    500,
+                    "Something went wrong during fetching favourites"
+                )
+            );
     }
 };
 
@@ -1018,3 +1020,358 @@ export const handleUnsubscribeFromChef = async (req, res, next) => {
     }
 };
 */
+
+export const addChefReview = async (req, res, next) => {
+    try {
+        const { chefId } = req.params;
+        const { rating, message } = req.body;
+        const userId = req.user._id;
+
+        if (!mongoose.Types.ObjectId.isValid(chefId)) {
+            throw new ApiError(400, "Invalid chef ID format");
+        }
+        if (!rating || rating < 1 || rating > 5) {
+            throw new ApiError(400, "Rating is required and must be between 1 and 5");
+        }
+        if (!message?.trim()) {
+            throw new ApiError(400, "Review message is required");
+        }
+        if (message.length > 1000) {
+            throw new ApiError(400, "Message cannot exceed 1000 characters");
+        }
+
+        if (userId.toString() === chefId.toString()) {
+            throw new ApiError(400, "You cannot review yourself");
+        }
+
+        const newReview = {
+            userId,
+            rating,
+            message: message.trim(),
+            createdAt: new Date(),
+            updatedAt: new Date(),
+        };
+
+        const updatedChef = await User.findOneAndUpdate(
+            {
+                _id: chefId,
+                role: "CHEF",
+                isActive: true,
+                "chefProfile.reviews.userId": { $ne: userId },
+            },
+            {
+                $push: {
+                    "chefProfile.reviews": newReview,
+                },
+            },
+            {
+                new: true,
+            }
+        );
+
+        if (!updatedChef) {
+            const chefExists = await User.exists({
+                _id: chefId,
+                role: "CHEF",
+                isActive: true,
+            });
+
+            if (!chefExists) {
+                throw new ApiError(
+                    404,
+                    "Chef not found or is inactive"
+                );
+            }
+
+            throw new ApiError(
+                409,
+                "You have already reviewed this chef"
+            );
+        }
+
+        // Keep User.reviewsGiven synchronized
+        await User.findByIdAndUpdate(userId, {
+            $push: {
+                reviewsGiven: {
+                    targetType: "CHEF",
+                    targetId: chefId,
+                    rating,
+                    message: message.trim(),
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
+                },
+            },
+        });
+        await deleteCache(`user:${userId}:profile`);
+
+        recalculateChefRatings(updatedChef);
+        await updatedChef.save();
+
+        await Promise.all([
+            deleteCache(`chef:${chefId}:reviews:summary`),
+            deleteCache(`user:${chefId}:profile`)
+        ]);
+
+        const cachedChef = updatedChef.toObject();
+
+        await setCache(
+            `user:${chefId}:profile`,
+            cachedChef,
+            3600
+        );
+
+        return res
+            .status(201)
+            .json(new ApiResponse(201, "Review added successfully"));
+    } catch (error) {
+        console.error("Error adding chef review:", error);
+        return next(
+            error instanceof ApiError
+                ? error
+                : new ApiError(500, "Something went wrong while adding chef review")
+        );
+    }
+};
+
+export const updateChefReview = async (req, res, next) => {
+    try {
+        const { chefId } = req.params;
+        const { rating, message } = req.body;
+        const userId = req.user._id;
+
+        if (!mongoose.Types.ObjectId.isValid(chefId)) {
+            throw new ApiError(400, "Invalid chef ID format");
+        }
+        if (!rating || rating < 1 || rating > 5) {
+            throw new ApiError(400, "Rating is required and must be between 1 and 5");
+        }
+        if (message !== undefined) {
+            if (!message?.trim()) {
+                throw new ApiError(400, "Review message is required");
+            }
+            if (message.length > 1000) {
+                throw new ApiError(400, "Message cannot exceed 1000 characters");
+            }
+        }
+
+        const updateFields = {
+            "chefProfile.reviews.$.updatedAt": new Date(),
+            "chefProfile.reviews.$.rating": rating,
+        };
+        if (message !== undefined) {
+            updateFields["chefProfile.reviews.$.message"] = message.trim();
+        }
+
+        const updatedUser = await User.findOneAndUpdate(
+            {
+                _id: chefId, "chefProfile.reviews.userId": userId, role: "CHEF",
+                isActive: true,
+            },
+            { $set: updateFields },
+            {
+                new: true,
+            }
+        );
+
+        if (!updatedUser) {
+            const chefExists = await User.exists({ _id: chefId, role: "CHEF", isActive: true });
+            if (!chefExists) {
+                throw new ApiError(404, "Chef not found or is inactive");
+            }
+            throw new ApiError(404, "Review not found");
+        }
+
+        // Keep User.reviewsGiven synchronized
+        const userUpdateFields = {
+            "reviewsGiven.$[elem].rating": rating,
+            "reviewsGiven.$[elem].updatedAt": new Date(),
+        };
+        if (message !== undefined) {
+            userUpdateFields["reviewsGiven.$[elem].message"] = message.trim();
+        }
+
+        await User.findByIdAndUpdate(
+            userId,
+            { $set: userUpdateFields },
+            {
+                arrayFilters: [
+                    {
+                        "elem.targetType": "CHEF",
+                        "elem.targetId": chefId,
+                    },
+                ],
+            }
+        );
+        await deleteCache(`user:${userId}:profile`);
+
+        recalculateChefRatings(updatedUser);
+        await updatedUser.save();
+
+        await Promise.all([
+            deleteCache(`chef:${chefId}:reviews:summary`),
+            deleteCache(`user:${chefId}:profile`)
+        ]);
+
+        const cachedChef = updatedUser.toObject();
+
+        await setCache(
+            `user:${chefId}:profile`,
+            cachedChef,
+            3600
+        );
+
+        return res
+            .status(200)
+            .json(new ApiResponse(200, "Review updated successfully"));
+    } catch (error) {
+        console.error("Error updating chef review:", error);
+        return next(
+            error instanceof ApiError
+                ? error
+                : new ApiError(500, "Something went wrong while updating chef review")
+        );
+    }
+};
+
+export const deleteChefReview = async (req, res, next) => {
+    try {
+        const { chefId } = req.params;
+        const userId = req.user._id;
+
+        if (!mongoose.Types.ObjectId.isValid(chefId)) {
+            throw new ApiError(400, "Invalid chef ID format");
+        }
+
+        const updatedUser = await User.findOneAndUpdate(
+            {
+                _id: chefId,
+                role: "CHEF",
+                isActive: true,
+                "chefProfile.reviews.userId": userId
+            },
+            { $pull: { "chefProfile.reviews": { userId } } },
+            { new: true }
+        );
+
+        if (!updatedUser) {
+            const chefExists = await User.exists({ _id: chefId, role: "CHEF", isActive: true });
+            if (!chefExists) {
+                throw new ApiError(404, "Chef not found or is inactive");
+            }
+            throw new ApiError(404, "Review not found or could not be deleted");
+        }
+
+        // Keep User.reviewsGiven synchronized
+        await User.findByIdAndUpdate(userId, {
+            $pull: {
+                reviewsGiven: {
+                    targetType: "CHEF",
+                    targetId: new mongoose.Types.ObjectId(chefId),
+                },
+            },
+        });
+        await deleteCache(`user:${userId}:profile`);
+
+        recalculateChefRatings(updatedUser);
+        await updatedUser.save();
+
+        await Promise.all([
+            deleteCache(`chef:${chefId}:reviews:summary`),
+            deleteCache(`user:${chefId}:profile`)
+        ]);
+
+        const cachedChef = updatedUser.toObject();
+
+        await setCache(
+            `user:${chefId}:profile`,
+            cachedChef,
+            3600
+        );
+
+        return res
+            .status(200)
+            .json(new ApiResponse(200, "Review deleted successfully"));
+    } catch (error) {
+        console.error("Error deleting chef review:", error);
+        return next(
+            error instanceof ApiError
+                ? error
+                : new ApiError(500, "Something went wrong while deleting chef review")
+        );
+    }
+};
+
+export const getAllReviews = async (req, res, next) => {
+    try {
+        const { chefId } = req.params;
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+
+        if (!mongoose.Types.ObjectId.isValid(chefId)) {
+            throw new ApiError(400, "Invalid chef ID format");
+        }
+
+        const cacheKey = `chef:${chefId}:reviews:summary`;
+        let summaryData = await getCache(cacheKey);
+
+        if (!summaryData) {
+            const chef = await User.findOne({
+                _id: chefId,
+                role: "CHEF",
+                isActive: true
+            }).select("chefProfile.averageRating chefProfile.reviews").lean();
+
+            if (!chef) {
+                throw new ApiError(404, "Chef not found or is inactive");
+            }
+
+            const breakdown = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+            const reviewsList = chef.chefProfile?.reviews || [];
+            reviewsList.forEach((r) => {
+                if (r.rating >= 1 && r.rating <= 5) {
+                    breakdown[r.rating]++;
+                }
+            });
+
+            summaryData = {
+                averageRating: chef.chefProfile?.averageRating || 0,
+                totalReviews: reviewsList.length,
+                breakdown,
+                reviews: reviewsList
+            };
+
+            await setCache(cacheKey, summaryData, 3600);
+        }
+
+        // Apply pagination and sorting in-memory
+        const startIndex = (page - 1) * limit;
+        const endIndex = page * limit;
+
+        const sortedReviews = [...summaryData.reviews].sort(
+            (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+        );
+
+        const paginatedReviews = sortedReviews.slice(startIndex, endIndex);
+
+        return res.status(200).json(
+            new ApiResponse(200, "Review summary fetched successfully", {
+                reviews: paginatedReviews,
+                meta: {
+                    page,
+                    limit,
+                    totalPages: Math.ceil(summaryData.totalReviews / limit),
+                    averageRating: summaryData.averageRating,
+                    totalReviews: summaryData.totalReviews,
+                    breakdown: summaryData.breakdown,
+                }
+            })
+        );
+    } catch (error) {
+        console.error("Error fetching chef review summary:", error);
+        return next(
+            error instanceof ApiError
+                ? error
+                : new ApiError(500, "Something went wrong while fetching chef review summary")
+        );
+    }
+};

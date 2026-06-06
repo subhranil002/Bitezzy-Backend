@@ -6,6 +6,7 @@ import { similaritySearch } from "../services/vectorService.js";
 import { recipeQueue } from "../configs/queue.config.js";
 import { uuid } from "zod/v4";
 import { getCache, setCache, deleteCache } from "../utils/redisUtils.js";
+import { recalculateRecipeRatings } from "../utils/recalculateRecipeRatings.js";
 
 // create Recipe
 const addRecipe = async (req, res, next) => {
@@ -1149,25 +1150,6 @@ const addReview = async (req, res, next) => {
             throw new ApiError(400, "Message cannot exceed 1000 characters");
         }
 
-        let recipeExists = await getCache(`recipe:${recipeId}`);
-
-        if (!recipeExists) {
-            recipeExists = await Recipe.findOne({
-                _id: recipeId,
-                isActive: true,
-            }).select("_id");
-
-            if (!recipeExists) {
-                throw new ApiError(404, "Recipe not found or is inactive");
-            }
-        }
-
-        // Check whether current user already reviewed this recipe
-        const hasReviewed = await Recipe.exists({ _id: recipeId, "reviews.userId": userId });
-        if (hasReviewed) {
-            throw new ApiError(409, "You have already reviewed this recipe");
-        }
-
         const newReview = {
             userId,
             rating,
@@ -1177,22 +1159,62 @@ const addReview = async (req, res, next) => {
         };
 
         // Atomically push review
-        const pushed = await Recipe.findOneAndUpdate(
-            { _id: recipeId, "reviews.userId": { $ne: userId } },
+        const recipe = await Recipe.findOneAndUpdate(
+            {
+                _id: recipeId, isActive: true, "reviews.userId": { $ne: userId },
+            },
             { $push: { reviews: newReview } },
             { new: true }
         );
 
-        if (!pushed) {
-            throw new ApiError(409, "Review already exists or recipe is unavailable");
+        if (!recipe) {
+            const exists = await Recipe.exists({
+                _id: recipeId,
+                isActive: true
+            });
+
+            if (!exists) {
+                throw new ApiError(404, "Recipe not found");
+            }
+
+            throw new ApiError(
+                409,
+                "You have already reviewed this recipe"
+            );
         }
 
-        await deleteCache(`recipe:${recipeId}`)
-        await setCache(`recipe:${recipeId}`, pushed, 3600)
+        // User.reviewsGiven
+        await User.findByIdAndUpdate(userId, {
+            $push: {
+                reviewsGiven: {
+                    targetType: "RECIPE",
+                    targetId: recipeId,
+                    rating,
+                    message: message.trim(),
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
+                },
+            },
+        });
+        await deleteCache(`user:${userId}:profile`);
+
+        recalculateRecipeRatings(recipe);
+        await recipe.save();
+
+        await Promise.all([
+            deleteCache(`recipe:${recipeId}`),
+            deleteCache(`recipe:${recipeId}:reviews:summary`)
+        ]);
+
+        await setCache(
+            `recipe:${recipeId}`,
+            recipe.toObject(),
+            3600
+        );
 
         return res
             .status(201)
-            .json(new ApiResponse(201, "Review added successfully", pushed.reviews));
+            .json(new ApiResponse(201, "Review added successfully"));
     } catch (error) {
         console.error("Error adding review:", error);
         return next(
@@ -1226,26 +1248,6 @@ const updateReview = async (req, res, next) => {
             throw new ApiError(400, "Message cannot exceed 1000 characters");
         }
 
-        // Check if recipe exists and isActive
-        let recipeExists = await getCache(`recipe:${recipeId}`);
-
-        if (!recipeExists) {
-            recipeExists = await Recipe.findOne({
-                _id: recipeId,
-                isActive: true,
-            }).select("_id");
-
-            if (!recipeExists) {
-                throw new ApiError(404, "Recipe not found or is inactive");
-            }
-        }
-
-        // Check whether current user already reviewed this recipe
-        const hasReviewed = await Recipe.exists({ _id: recipeId, "reviews.userId": userId });
-        if (!hasReviewed) {
-            throw new ApiError(404, "Review not found");
-        }
-
         const updateFields = {
             "reviews.$.rating": rating,
             "reviews.$.updatedAt": new Date(),
@@ -1256,24 +1258,73 @@ const updateReview = async (req, res, next) => {
         }
 
         // Update rating, message, and updatedAt
-        const updated = await Recipe.findOneAndUpdate(
-            { _id: recipeId, "reviews.userId": userId },
+        const recipe = await Recipe.findOneAndUpdate(
+            {
+                _id: recipeId,
+                "reviews.userId": userId,
+                isActive: true
+            },
             {
                 $set: updateFields
             },
-            { new: true }
+            {
+                new: true
+            }
         );
 
-        if (!updated) {
-            throw new ApiError(404, "Review not found or could not be updated");
+        if (!recipe) {
+            const recipeExists = await Recipe.exists({
+                _id: recipeId,
+                isActive: true
+            });
+
+            if (!recipeExists) {
+                throw new ApiError(404, "Recipe not found");
+            }
+
+            throw new ApiError(404, "Review not found");
         }
 
-        await deleteCache(`recipe:${recipeId}`)
-        await setCache(`recipe:${recipeId}`, updated, 3600)
+        // Keep User.reviewsGiven synchronized
+        const userUpdateFields = {
+            "reviewsGiven.$[elem].rating": rating,
+            "reviewsGiven.$[elem].updatedAt": new Date(),
+        };
+        if (message !== undefined) {
+            userUpdateFields["reviewsGiven.$[elem].message"] = message.trim();
+        }
+
+        await User.findByIdAndUpdate(
+            userId,
+            { $set: userUpdateFields },
+            {
+                arrayFilters: [
+                    {
+                        "elem.targetType": "RECIPE",
+                        "elem.targetId": recipeId,
+                    },
+                ],
+            }
+        );
+        await deleteCache(`user:${userId}:profile`);
+
+        recalculateRecipeRatings(recipe);
+        await recipe.save();
+
+        await Promise.all([
+            deleteCache(`recipe:${recipeId}`),
+            deleteCache(`recipe:${recipeId}:reviews:summary`)
+        ]);
+
+        await setCache(
+            `recipe:${recipeId}`,
+            recipe.toObject(),
+            3600
+        );
 
         return res
             .status(200)
-            .json(new ApiResponse(200, "Review updated successfully", updated.reviews));
+            .json(new ApiResponse(200, "Review updated successfully"));
     } catch (error) {
         console.error("Error updating review:", error);
         return next(
@@ -1294,24 +1345,55 @@ const deleteReview = async (req, res, next) => {
         if (!mongoose.Types.ObjectId.isValid(recipeId)) {
             throw new ApiError(400, "Invalid recipe ID format");
         }
-        const recipeExists = await Recipe.findOne({ _id: recipeId, isActive: true }).select("_id");
-        if (!recipeExists) {
-            throw new ApiError(404, "Recipe not found or is inactive");
-        }
 
-        // Verify review exists
-        const reviewExists = await Recipe.exists({ _id: recipeId, "reviews.userId": userId });
-        if (!reviewExists) {
+        // pull the user's review
+        const recipe = await Recipe.findOneAndUpdate(
+            {
+                _id: recipeId,
+                isActive: true,
+                "reviews.userId": userId
+            },
+            { $pull: { reviews: { userId } } },
+            { new: true }
+        );
+
+        if (!recipe) {
+            const recipeExists = await Recipe.exists({
+                _id: recipeId,
+                isActive: true
+            });
+
+            if (!recipeExists) {
+                throw new ApiError(404, "Recipe not found");
+            }
+
             throw new ApiError(404, "Review not found");
         }
 
-        // pull the user's review
-        await Recipe.updateOne(
-            { _id: recipeId },
-            { $pull: { reviews: { userId } } }
-        );
+        // Keep User.reviewsGiven synchronized
+        await User.findByIdAndUpdate(userId, {
+            $pull: {
+                reviewsGiven: {
+                    targetType: "RECIPE",
+                    targetId: recipeId,
+                },
+            },
+        });
+        await deleteCache(`user:${userId}:profile`);
 
-        await deleteCache(`recipe:${recipeId}`)
+        recalculateRecipeRatings(recipe);
+        await recipe.save();
+
+        await Promise.all([
+            deleteCache(`recipe:${recipeId}`),
+            deleteCache(`recipe:${recipeId}:reviews:summary`)
+        ]);
+
+        await setCache(
+            `recipe:${recipeId}`,
+            recipe.toObject(),
+            3600
+        );
 
         return res
             .status(200)
@@ -1326,6 +1408,79 @@ const deleteReview = async (req, res, next) => {
     }
 };
 
+const getAllReviews = async (req, res, next) => {
+    try {
+        const { recipeId } = req.params;
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+
+        if (!mongoose.Types.ObjectId.isValid(recipeId)) {
+            throw new ApiError(400, "Invalid recipe ID format");
+        }
+
+        const cacheKey = `recipe:${recipeId}:reviews:summary`;
+        let summaryData = await getCache(cacheKey);
+
+        if (!summaryData) {
+            const recipe = await Recipe.findOne({
+                _id: recipeId,
+                isActive: true
+            }).select("averageRating reviews").lean();
+
+            if (!recipe) {
+                throw new ApiError(404, "Recipe not found or is inactive");
+            }
+
+            const breakdown = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+            const reviewsList = recipe.reviews || [];
+            reviewsList.forEach((r) => {
+                if (r.rating >= 1 && r.rating <= 5) {
+                    breakdown[r.rating]++;
+                }
+            });
+
+            summaryData = {
+                averageRating: recipe.averageRating || 0,
+                totalReviews: reviewsList.length,
+                breakdown,
+                reviews: reviewsList
+            };
+
+            await setCache(cacheKey, summaryData, 3600);
+        }
+
+        // Apply pagination and sorting in-memory
+        const startIndex = (page - 1) * limit;
+        const endIndex = page * limit;
+
+        const sortedReviews = [...summaryData.reviews].sort(
+            (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+        );
+
+        const paginatedReviews = sortedReviews.slice(startIndex, endIndex);
+
+        return res.status(200).json(
+            new ApiResponse(200, "Review summary fetched successfully", {
+                reviews: paginatedReviews,
+                meta: {
+                    page,
+                    limit,
+                    totalPages: Math.ceil(summaryData.totalReviews / limit),
+                    averageRating: summaryData.averageRating,
+                    totalReviews: summaryData.totalReviews,
+                    breakdown: summaryData.breakdown,
+                }
+            })
+        );
+    } catch (error) {
+        console.error("Error fetching recipe review summary:", error);
+        return next(
+            error instanceof ApiError
+                ? error
+                : new ApiError(500, "Something went wrong while fetching recipe review summary")
+        );
+    }
+};
 
 export {
     addRecipe,
@@ -1345,4 +1500,5 @@ export {
     addReview,
     updateReview,
     deleteReview,
+    getAllReviews,
 };

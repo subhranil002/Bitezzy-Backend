@@ -17,6 +17,7 @@ import {
     addReview,
     updateReview,
     deleteReview,
+    getAllReviews,
 } from "../controllers/recipe.controllers.js";
 import {
     parseRecipeJsonFields,
@@ -58,6 +59,7 @@ recipeRoutes.route("/similar/:id").get(isLoggedIn, rateLimiter(60, 30), getSimil
 
 recipeRoutes
     .route("/:recipeId/reviews")
+    .get(rateLimiter(60, 30), getAllReviews)
     .post(
         isLoggedIn,
         rateLimiter(60, 10),
