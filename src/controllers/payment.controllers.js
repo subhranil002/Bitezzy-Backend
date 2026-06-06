@@ -209,8 +209,6 @@ export const handleWebhook = async (req, res, next) => {
 
                 // console.log("Subscription Entity", subscriptionEntity);
 
-
-
                 const {
                     id: razorpaySubscriptionId,
                     current_start,
@@ -219,6 +217,8 @@ export const handleWebhook = async (req, res, next) => {
                     status,
                     notes: { userId, chefId },
                 } = subscriptionEntity;
+
+                // console.log("Subscription notes: ", notes);
 
                 await Payment.findOneAndUpdate(
                     {
@@ -244,7 +244,7 @@ export const handleWebhook = async (req, res, next) => {
                         },
                     }
                 );
-                console.log("User subscribed to: ", user.profile.subscribed);
+                // console.log("User subscribed to: ", user.profile.subscribed);
 
                 // Add user to chef subscribers
                 const chef = await User.findOneAndUpdate(
@@ -258,7 +258,10 @@ export const handleWebhook = async (req, res, next) => {
                         },
                     }
                 );
-                console.log("Chef acquired subscribers: ", chef.chefProfile.subscribers);
+                // console.log("Chef acquired subscribers: ", chef.chefProfile.subscribers);
+
+                // deleting cache
+                await deleteCache(`user:${userId}:profile`);
 
                 break;
             }

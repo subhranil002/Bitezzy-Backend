@@ -62,13 +62,11 @@ const educationSchema = Joi.object({
 
     fieldOfStudy: Joi.string().trim().max(100).required(),
 
-    startYear: Joi.number()
-        .integer()
+    startYear: Joi.string()
         .min(1900)
-        .max(new Date().getFullYear())
         .required(),
 
-    endYear: Joi.number().integer().min(Joi.ref("startYear")).allow(null),
+    endYear: Joi.string().optional(),
 
     description: Joi.string().trim().max(500).allow("").optional(),
 });
@@ -83,17 +81,9 @@ const experienceSchema = Joi.object({
 
     isCurrenltyWorking: Joi.boolean().optional(),
 
-    startYear: Joi.number()
-        .integer()
-        .min(1900)
-        .max(new Date().getFullYear())
-        .required(),
+    startYear: Joi.string().trim().required(),
 
-    endYear: Joi.number()
-    .integer()
-    .min(Joi.ref("startYear"))
-    .max(new Date().getFullYear())
-    .optional(),
+    endYear: Joi.string().trim().optional(),
 
     description: Joi.string().trim().max(500).allow("").optional(),
 });
