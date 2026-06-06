@@ -190,43 +190,13 @@ export const handleWebhook = async (req, res, next) => {
                     },
                     {
                         razorpayPaymentId: paymentEntity.id,
+                        razorpaySignature,
                         amount: paymentEntity.amount / 100,
                         currency: paymentEntity.currency,
                         paymentStatus: paymentEntity.status,
                     }
                 );
 
-                // await payment.save();
-
-                // console.log("Payment created successfully: ", payment);
-
-                // Add chef to user's subscribed list
-                // const user = await User.findOneAndUpdate(
-                //     {
-                //         _id: userId,
-                //         isActive: true,
-                //     },
-                //     {
-                //         $addToSet: {
-                //             "profile.subscribed": chefId,
-                //         },
-                //     }
-                // );
-                // console.log("User subscribed: ", user.profile.subscribed);
-
-                // // Add user to chef subscribers
-                // const chef = await User.findOneAndUpdate(
-                //     {
-                //         _id: chefId,
-                //         isActive: true,
-                //     },
-                //     {
-                //         $addToSet: {
-                //             "chefProfile.subscribers": userId,
-                //         },
-                //     }
-                // );
-                // console.log("Chef subscribers: ", chef.chefProfile.subscribers);
                 break;
             }
             case "payment.failed": {
@@ -239,12 +209,15 @@ export const handleWebhook = async (req, res, next) => {
 
                 // console.log("Subscription Entity", subscriptionEntity);
 
+
+
                 const {
                     id: razorpaySubscriptionId,
                     current_start,
                     current_end,
                     charge_at,
                     status,
+                    notes: { userId, chefId },
                 } = subscriptionEntity;
 
                 await Payment.findOneAndUpdate(
@@ -258,6 +231,34 @@ export const handleWebhook = async (req, res, next) => {
                         nextBillingAt: new Date(charge_at * 1000),
                     }
                 );
+
+                // Add chef to user's subscribed list
+                const user = await User.findOneAndUpdate(
+                    {
+                        _id: userId,
+                        isActive: true,
+                    },
+                    {
+                        $addToSet: {
+                            "profile.subscribed": chefId,
+                        },
+                    }
+                );
+                console.log("User subscribed to: ", user.profile.subscribed);
+
+                // Add user to chef subscribers
+                const chef = await User.findOneAndUpdate(
+                    {
+                        _id: chefId,
+                        isActive: true,
+                    },
+                    {
+                        $addToSet: {
+                            "chefProfile.subscribers": userId,
+                        },
+                    }
+                );
+                console.log("Chef acquired subscribers: ", chef.chefProfile.subscribers);
 
                 break;
             }
