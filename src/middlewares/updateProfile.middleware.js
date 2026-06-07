@@ -62,9 +62,7 @@ const educationSchema = Joi.object({
 
     fieldOfStudy: Joi.string().trim().max(100).required(),
 
-    startYear: Joi.string()
-        .min(1900)
-        .required(),
+    startYear: Joi.string().pattern(/^(19|20)\d{2}$/).required(),
 
     endYear: Joi.string().optional(),
 
@@ -79,7 +77,7 @@ const experienceSchema = Joi.object({
 
     companyOrOrganization: Joi.string().trim().max(100).required(),
 
-    isCurrenltyWorking: Joi.boolean().optional(),
+    isCurrentlyWorking: Joi.boolean().optional(),
 
     startYear: Joi.string().trim().required(),
 

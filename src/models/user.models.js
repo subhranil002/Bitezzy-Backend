@@ -156,7 +156,7 @@ const userSchema = new mongoose.Schema(
                         title: String,
                         employmentType: String,
                         companyOrOrganization: String,
-                        isCurrenltyWorking: Boolean,
+                        isCurrentlyWorking: Boolean,
                         startYear: String,
                         endYear: String,
                         description: String,

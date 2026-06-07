@@ -246,7 +246,7 @@ const getRecipeById = async (req, res, next) => {
             recipe = await Recipe.findOne({
                 _id: req.params.id,
                 isActive: true,
-            }).populate("chefId");
+            }).populate("chefId", "profile.name profile.avatar chefProfile.averageRating  chefProfile.reviews");
 
             if (!recipe) {
                 throw new ApiError(404, "Recipe not found");
@@ -1165,7 +1165,7 @@ const addReview = async (req, res, next) => {
             },
             { $push: { reviews: newReview } },
             { new: true }
-        );
+        ).populate("chefId", "profile.name profile.avatar chefProfile.averageRating chefProfile.reviews");
 
         if (!recipe) {
             const exists = await Recipe.exists({
@@ -1270,7 +1270,7 @@ const updateReview = async (req, res, next) => {
             {
                 new: true
             }
-        );
+        ).populate("chefId", "profile.name profile.avatar chefProfile.averageRating chefProfile.reviews");
 
         if (!recipe) {
             const recipeExists = await Recipe.exists({
@@ -1318,7 +1318,7 @@ const updateReview = async (req, res, next) => {
 
         await setCache(
             `recipe:${recipeId}`,
-            recipe.toObject(),
+            recipe,
             3600
         );
 
@@ -1355,7 +1355,7 @@ const deleteReview = async (req, res, next) => {
             },
             { $pull: { reviews: { userId } } },
             { new: true }
-        );
+        ).populate("chefId", "profile.name profile.avatar chefProfile.averageRating chefProfile.reviews");
 
         if (!recipe) {
             const recipeExists = await Recipe.exists({
@@ -1425,7 +1425,10 @@ const getAllReviews = async (req, res, next) => {
             const recipe = await Recipe.findOne({
                 _id: recipeId,
                 isActive: true
-            }).select("averageRating reviews").lean();
+            }).select("averageRating reviews").populate({
+                path: "reviews.userId",
+                select: "profile.name profile.avatar",
+            }).lean();
 
             if (!recipe) {
                 throw new ApiError(404, "Recipe not found or is inactive");

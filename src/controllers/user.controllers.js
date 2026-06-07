@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import mongoose from "mongoose";
 import User from "../models/user.models.js";
+import Recipe from "../models/recipe.models.js";
 import {
     ApiResponse,
     ApiError,
@@ -492,6 +493,9 @@ export const handleGetProfile = async (req, res, next) => {
             user = await User.findOne({
                 _id: req.user._id,
                 isActive: true,
+            }).populate({
+                path: "chefProfile.reviews.userId",
+                select: "profile.name profile.avatar",
             });
 
             if (!user) {
@@ -680,7 +684,10 @@ export const handleUpdateProfile = async (req, res, next) => {
             { _id: user._id, isActive: true },
             { $set: updates },
             { new: true, runValidators: true }
-        );
+        ).populate({
+            path: "chefProfile.reviews.userId",
+            select: "profile.name profile.avatar",
+        });
 
         if (!updatedUser) {
             throw new ApiError(404, "User not found");
@@ -717,7 +724,10 @@ export const handleGetUserById = async (req, res, next) => {
                 isActive: true,
             }).select(
                 "-email -password -forgotPasswordToken -forgotPasswordExpiry"
-            );
+            ).populate({
+                path: "chefProfile.reviews.userId",
+                select: "profile.name profile.avatar",
+            });
 
             if (!user) {
                 throw new ApiError(404, "User not found");
@@ -1067,7 +1077,10 @@ export const addChefReview = async (req, res, next) => {
             {
                 new: true,
             }
-        );
+        ).populate({
+            path: "chefProfile.reviews.userId",
+            select: "profile.name profile.avatar",
+        });
 
         if (!updatedChef) {
             const chefExists = await User.exists({
@@ -1102,6 +1115,11 @@ export const addChefReview = async (req, res, next) => {
                 },
             },
         });
+        const chefRecipes = await Recipe.find(
+            { chefId },
+            "_id"
+        ).lean();
+
         await deleteCache(`user:${userId}:profile`);
 
         recalculateChefRatings(updatedChef);
@@ -1109,7 +1127,10 @@ export const addChefReview = async (req, res, next) => {
 
         await Promise.all([
             deleteCache(`chef:${chefId}:reviews:summary`),
-            deleteCache(`user:${chefId}:profile`)
+            deleteCache(`user:${chefId}:profile`),
+            ...chefRecipes.map((recipe) =>
+                deleteCache(`recipe:${recipe._id}`)
+            ),
         ]);
 
         const cachedChef = updatedChef.toObject();
@@ -1171,7 +1192,10 @@ export const updateChefReview = async (req, res, next) => {
             {
                 new: true,
             }
-        );
+        ).populate({
+            path: "chefProfile.reviews.userId",
+            select: "profile.name profile.avatar",
+        });
 
         if (!updatedUser) {
             const chefExists = await User.exists({ _id: chefId, role: "CHEF", isActive: true });
@@ -1202,6 +1226,12 @@ export const updateChefReview = async (req, res, next) => {
                 ],
             }
         );
+
+        const chefRecipes = await Recipe.find(
+            { chefId },
+            "_id"
+        ).lean();
+
         await deleteCache(`user:${userId}:profile`);
 
         recalculateChefRatings(updatedUser);
@@ -1209,7 +1239,10 @@ export const updateChefReview = async (req, res, next) => {
 
         await Promise.all([
             deleteCache(`chef:${chefId}:reviews:summary`),
-            deleteCache(`user:${chefId}:profile`)
+            deleteCache(`user:${chefId}:profile`),
+            ...chefRecipes.map((recipe) =>
+                deleteCache(`recipe:${recipe._id}`)
+            ),
         ]);
 
         const cachedChef = updatedUser.toObject();
@@ -1251,7 +1284,10 @@ export const deleteChefReview = async (req, res, next) => {
             },
             { $pull: { "chefProfile.reviews": { userId } } },
             { new: true }
-        );
+        ).populate({
+            path: "chefProfile.reviews.userId",
+            select: "profile.name profile.avatar",
+        });
 
         if (!updatedUser) {
             const chefExists = await User.exists({ _id: chefId, role: "CHEF", isActive: true });
@@ -1270,6 +1306,12 @@ export const deleteChefReview = async (req, res, next) => {
                 },
             },
         });
+
+        const chefRecipes = await Recipe.find(
+            { chefId },
+            "_id"
+        ).lean();
+
         await deleteCache(`user:${userId}:profile`);
 
         recalculateChefRatings(updatedUser);
@@ -1277,7 +1319,10 @@ export const deleteChefReview = async (req, res, next) => {
 
         await Promise.all([
             deleteCache(`chef:${chefId}:reviews:summary`),
-            deleteCache(`user:${chefId}:profile`)
+            deleteCache(`user:${chefId}:profile`),
+            ...chefRecipes.map((recipe) =>
+                deleteCache(`recipe:${recipe._id}`)
+            ),
         ]);
 
         const cachedChef = updatedUser.toObject();
