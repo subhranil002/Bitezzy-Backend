@@ -670,6 +670,51 @@ const handleGetUserById = async (req, res, next) => {
     }
 };
 
+const handleGetMySubscribers = async (req, res, next) => {
+    try {
+        // A chef wants to see their subscribers.
+        const userId = req.user._id;
+
+        let subscribers = await UserCacheService.getChefSubscribers(userId);
+
+        if (!subscribers) {
+            const user = await User.findOne({
+                _id: userId,
+                isActive: true,
+                role: "CHEF",
+            })
+                .select("chefProfile.subscribers")
+                .populate("chefProfile.subscribers");
+
+            if (!user) {
+                throw new ApiError(404, "Chef not found");
+            }
+
+            subscribers = user.chefProfile?.subscribers || [];
+            await UserCacheService.updateChefSubscribers(userId, subscribers);
+        }
+
+        return res
+            .status(200)
+            .json(
+                new ApiResponse(
+                    200,
+                    "Subscribers fetched successfully",
+                    subscribers
+                )
+            );
+    } catch (error) {
+        error instanceof ApiError
+            ? next(error)
+            : next(
+                new ApiError(
+                    500,
+                    "Something went wrong during fetching subscribers"
+                )
+            );
+    }
+};
+
 const handleGetChefRecipesById = async (req, res, next) => {
     try {
         const userId = req.params.id;
@@ -1247,6 +1292,40 @@ const getAllChefReviews = async (req, res, next) => {
     }
 };
 
+const handleGetMyReviewsGiven = async (req, res, next) => {
+    try {
+        const userId = req.user._id;
+        let reviewsGiven = await UserCacheService.getReviewsGiven(userId);
+
+        if (!reviewsGiven) {
+            reviewsGiven = await User.findOne({
+                _id: userId,
+                isActive: true,
+            })
+                .select("reviewsGiven")
+                .populate({
+                    path: "reviewsGiven.targetId",
+                    select: "_id profile.name profile.avatar title thumbnail",
+                })
+                .lean();
+
+            if (!reviewsGiven) {
+                throw new ApiError(404, "Reviews given not found");
+            }
+
+            await UserCacheService.updateReviewsGiven(userId, reviewsGiven);
+        }
+
+        return res.status(200).json(
+            new ApiResponse(200, "Reviews given fetched successfully", reviewsGiven)
+        );
+    } catch (error) {
+        error instanceof ApiError
+            ? next(error)
+            : next(new ApiError(500, "Something went wrong while fetching reviews given"));
+    }
+};
+
 export {
     handleRegister,
     handleLogin,
@@ -1259,6 +1338,7 @@ export {
     handleGetMySubscriptions,
     handleUpdateProfile,
     handleGetUserById,
+    handleGetMySubscribers,
     handleGetChefRecipesById,
     handleContactus,
     handleGetFavourites,
@@ -1267,5 +1347,6 @@ export {
     addChefReview,
     updateChefReview,
     deleteChefReview,
-    getAllChefReviews
+    getAllChefReviews,
+    handleGetMyReviewsGiven,
 };
