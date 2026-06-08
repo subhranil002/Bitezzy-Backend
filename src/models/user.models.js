@@ -267,12 +267,13 @@ const userSchema = new mongoose.Schema(
             {
                 targetType: {
                     type: String,
-                    enum: ["RECIPE", "CHEF"],
+                    enum: ["Recipe", "User"],
                     required: true,
                 },
                 targetId: {
                     type: mongoose.Schema.Types.ObjectId,
                     required: true,
+                    refPath: "reviewsGiven.targetType",
                 },
                 rating: {
                     type: Number,

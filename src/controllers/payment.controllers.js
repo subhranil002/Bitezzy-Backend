@@ -4,6 +4,7 @@ import User from "../models/user.models.js"; // user model
 import Payment from "../models/payment.models.js"; // payment model
 import constants from "../constants.js";
 import crypto from "crypto";
+import UserCacheService from "../services/cache/user.cache.js";
 
 export const handleCreatePlan = async (req, res, next) => {
     try {
@@ -123,9 +124,9 @@ export const handleCreateSubscription = async (req, res, next) => {
             error instanceof ApiError
                 ? error
                 : new ApiError(
-                      500,
-                      "Something went wrong while creating subscription"
-                  )
+                    500,
+                    "Something went wrong while creating subscription"
+                )
         );
     }
 };
@@ -232,36 +233,38 @@ export const handleWebhook = async (req, res, next) => {
                     }
                 );
 
-                // Add chef to user's subscribed list
-                const user = await User.findOneAndUpdate(
-                    {
-                        _id: userId,
-                        isActive: true,
-                    },
-                    {
-                        $addToSet: {
-                            "profile.subscribed": chefId,
+                await Promise.all([
+                    // Add chef to user's subscribed list
+                    User.findOneAndUpdate(
+                        {
+                            _id: userId,
+                            isActive: true,
                         },
-                    }
-                );
-                // console.log("User subscribed to: ", user.profile.subscribed);
+                        {
+                            $addToSet: {
+                                "profile.subscribed": chefId,
+                            },
+                        }
+                    ),
 
-                // Add user to chef subscribers
-                const chef = await User.findOneAndUpdate(
-                    {
-                        _id: chefId,
-                        isActive: true,
-                    },
-                    {
-                        $addToSet: {
-                            "chefProfile.subscribers": userId,
+                    // Add user to chef subscribers
+                    User.findOneAndUpdate(
+                        {
+                            _id: chefId,
+                            isActive: true,
                         },
-                    }
-                );
-                // console.log("Chef acquired subscribers: ", chef.chefProfile.subscribers);
+                        {
+                            $addToSet: {
+                                "chefProfile.subscribers": userId,
+                            },
+                        }
+                    )
+                ]);
 
-                // deleting cache
-                await deleteCache(`user:${userId}:profile`);
+                // Invalidating caches
+                await UserCacheService.invalidateProfile(userId);
+                await UserCacheService.invalidateSubscriptions(userId);
+                await UserCacheService.invalidateChefSubscribers(chefId);
 
                 break;
             }
@@ -310,6 +313,11 @@ export const handleWebhook = async (req, res, next) => {
                             },
                         }
                     );
+
+                    // Invalidate caches
+                    await UserCacheService.invalidateProfile(payment.purchasedBy);
+                    await UserCacheService.invalidateSubscriptions(payment.purchasedBy);
+                    await UserCacheService.invalidateChefSubscribers(payment.chef);
                 }
 
                 break;
@@ -329,9 +337,9 @@ export const handleWebhook = async (req, res, next) => {
             error instanceof ApiError
                 ? error
                 : new ApiError(
-                      500,
-                      "Something went wrong while handling webhook"
-                  )
+                    500,
+                    "Something went wrong while handling webhook"
+                )
         );
     }
 };
@@ -380,9 +388,9 @@ export const handleCancelSubscription = async (req, res, next) => {
             error instanceof ApiError
                 ? error
                 : new ApiError(
-                      500,
-                      "Something went wrong while cancelling subscription"
-                  )
+                    500,
+                    "Something went wrong while cancelling subscription"
+                )
         );
     }
 };

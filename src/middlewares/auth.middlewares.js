@@ -2,6 +2,7 @@ import jwt from "jsonwebtoken";
 import User from "../models/user.models.js";
 import { ApiError, ApiResponse } from "../utils/index.js";
 import constants from "../constants.js";
+import UserCacheService from "../services/cache/user.cache.js";
 
 const refreshAccessToken = async (req, res, next) => {
     try {
@@ -45,6 +46,8 @@ const refreshAccessToken = async (req, res, next) => {
         await user.save();
         req.user = user;
 
+        await UserCacheService.updateProfile(user._id, user);
+
         res.cookie("accessToken", accessToken, {
             httpOnly: true,
             secure: true,
@@ -61,7 +64,6 @@ const refreshAccessToken = async (req, res, next) => {
     } catch (error) {
         console.log("Some error occured: ", error);
 
-        // If the error is already an instance of ApiError, pass it to the error handler
         error instanceof ApiError
             ? next(error)
             : next(
@@ -98,14 +100,15 @@ export const isLoggedIn = async (req, res, next) => {
 
             const userId = decodedAccessToken._id;
 
-            // let user = await getCache(`user:${userId}:profile`);
+            let user = await UserCacheService.getProfile(userId);
 
-            // if (!user) {
-            const user = await User.findOne({ _id: userId, isActive: true });
             if (!user) {
-                throw new ApiError(455, "User not found");
+                user = await User.findOne({ _id: userId, isActive: true });
+                if (!user) {
+                    throw new ApiError(455, "User not found");
+                }
+                await UserCacheService.updateProfile(userId, user);
             }
-            // }
 
             // Set user in request
             req.user = user;

@@ -4,8 +4,8 @@ import { ApiResponse, ApiError } from "../utils/index.js";
 import User from "../models/user.models.js";
 import { similaritySearch } from "../services/vectorService.js";
 import { recipeQueue } from "../configs/queue.config.js";
-import { uuid } from "zod/v4";
 import { getCache, setCache, deleteCache } from "../utils/redisUtils.js";
+import UserCacheService from "../services/cache/user.cache.js";
 import { recalculateRecipeRatings } from "../utils/recalculateRecipeRatings.js";
 
 // create Recipe
@@ -304,6 +304,8 @@ const getRecipeById = async (req, res, next) => {
                 },
             },
         });
+
+        await UserCacheService.invalidatePreferences(userId);
 
         return res
             .status(200)
@@ -691,8 +693,8 @@ const HandleGetRecommendedRecipes = async (req, res, next) => {
         if (!recommendedRecipes) {
             // Get the logged-in user's preferences
             const { cuisine, dietaryLabels } = req?.user?.profile || {};
-            const { cuisineSuggested, dietaryLabelsSuggested } =
-                req?.user || {};
+            const cuisineSuggested = req?.user?.cuisineSuggested || [];
+            const dietaryLabelsSuggested = req?.user?.dietaryLabelsSuggested || [];
 
             // flatten + merge
             const allCuisines = [cuisine, ...(cuisineSuggested || [])].filter(
@@ -771,8 +773,10 @@ const handleLikeRecipe = async (req, res, next) => {
 
         // Update caches directly
         await deleteCache(`recipe:${recipeId}`);
-        await deleteCache(`user:${user._id}:profile`);
-        await deleteCache(`user:${user._id}:favourites`);
+
+        // Update UserCache directly
+        await UserCacheService.updateProfile(user._id, user);
+        await UserCacheService.updateFavourites(user._id, user.favourites);
 
         return res.status(200).json(
             new ApiResponse(200, "Recipe added to favourites", {
@@ -824,8 +828,9 @@ const handleUnlikeRecipe = async (req, res, next) => {
         await Promise.all([recipe.save(), user.save()]);
 
         await deleteCache(`recipe:${recipeId}`);
-        await deleteCache(`user:${user._id}:profile`);
-        await deleteCache(`user:${user._id}:favourites`);
+
+        await UserCacheService.updateProfile(user._id, user);
+        await UserCacheService.updateFavourites(user._id, user.favourites);
 
         return res.status(200).json(
             new ApiResponse(200, "Recipe removed from favourites", {
@@ -1184,7 +1189,7 @@ const addReview = async (req, res, next) => {
         }
 
         // User.reviewsGiven
-        await User.findByIdAndUpdate(userId, {
+        const reviewsGiven = await User.findByIdAndUpdate(userId, {
             $push: {
                 reviewsGiven: {
                     targetType: "RECIPE",
@@ -1195,8 +1200,15 @@ const addReview = async (req, res, next) => {
                     updatedAt: new Date(),
                 },
             },
-        });
-        await deleteCache(`user:${userId}:profile`);
+        }, { new: true }).select("reviewsGiven")
+            .populate({
+                path: "reviewsGiven.targetId",
+                select: "_id profile.name profile.avatar title thumbnail",
+            })
+            .lean();
+
+        await UserCacheService.invalidateProfile(userId);
+        await UserCacheService.updateReviewsGiven(userId, reviewsGiven);
 
         recalculateRecipeRatings(recipe);
         await recipe.save();
@@ -1294,7 +1306,7 @@ const updateReview = async (req, res, next) => {
             userUpdateFields["reviewsGiven.$[elem].message"] = message.trim();
         }
 
-        await User.findByIdAndUpdate(
+        const reviewsGiven = await User.findByIdAndUpdate(
             userId,
             { $set: userUpdateFields },
             {
@@ -1304,9 +1316,17 @@ const updateReview = async (req, res, next) => {
                         "elem.targetId": recipeId,
                     },
                 ],
+                new: true,
             }
-        );
-        await deleteCache(`user:${userId}:profile`);
+        ).select("reviewsGiven")
+            .populate({
+                path: "reviewsGiven.targetId",
+                select: "_id profile.name profile.avatar title thumbnail",
+            })
+            .lean();
+
+        await UserCacheService.invalidateProfile(userId);
+        await UserCacheService.updateReviewsGiven(userId, reviewsGiven);
 
         recalculateRecipeRatings(recipe);
         await recipe.save();
@@ -1371,15 +1391,22 @@ const deleteReview = async (req, res, next) => {
         }
 
         // Keep User.reviewsGiven synchronized
-        await User.findByIdAndUpdate(userId, {
+        const reviewsGiven = await User.findByIdAndUpdate(userId, {
             $pull: {
                 reviewsGiven: {
                     targetType: "RECIPE",
                     targetId: recipeId,
                 },
             },
-        });
-        await deleteCache(`user:${userId}:profile`);
+        }, { new: true }).select("reviewsGiven")
+            .populate({
+                path: "reviewsGiven.targetId",
+                select: "_id profile.name profile.avatar title thumbnail",
+            })
+            .lean();
+
+        await UserCacheService.invalidateProfile(userId);
+        await UserCacheService.updateReviewsGiven(userId, reviewsGiven);
 
         recalculateRecipeRatings(recipe);
         await recipe.save();

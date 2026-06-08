@@ -13,7 +13,7 @@ import {
 } from "../utils/index.js";
 import constants from "../constants.js";
 import sendMail from "../utils/sendMail.js";
-import { getCache, setCache, deleteCache } from "../utils/redisUtils.js";
+import UserCacheService from "../services/cache/user.cache.js";
 import {
     contactUsAutoReplyTemplate,
     contactUsTemplate,
@@ -23,7 +23,7 @@ import {
 import razorpayInstance from "../configs/razorpay.configs.js";
 import { recalculateChefRatings } from "../utils/recalculateRecipeRatings.js";
 
-export const handleRegister = async (req, res, next) => {
+const handleRegister = async (req, res, next) => {
     try {
         // get name, email and pw from body
         const {
@@ -112,7 +112,7 @@ export const handleRegister = async (req, res, next) => {
             maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
         });
 
-        await setCache(`user:${newUser._id}:profile`, newUser, 3600);
+        await UserCacheService.updateProfile(newUser._id, newUser);
 
         // send welcome email
         await sendMail(
@@ -128,8 +128,6 @@ export const handleRegister = async (req, res, next) => {
             })
         );
     } catch (error) {
-        console.log("Some Error Occured: ", error);
-        // If the error is already an instance of ApiError, pass it to the error handler
         error instanceof ApiError
             ? next(error)
             : next(
@@ -138,7 +136,7 @@ export const handleRegister = async (req, res, next) => {
     }
 };
 
-export const handleLogin = async (req, res, next) => {
+const handleLogin = async (req, res, next) => {
     try {
         // get email and pw from body
         const { email, password } = req.body;
@@ -191,27 +189,30 @@ export const handleLogin = async (req, res, next) => {
             maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
         });
 
-        await setCache(`user:${user._id}:profile`, user, 3600);
+        await UserCacheService.updateProfile(user._id, user);
 
         // send response
         return res
             .status(200)
             .json(new ApiResponse(200, "Login Successful", user));
     } catch (error) {
-        console.log("Some Error Occured: ", error);
-
-        // If the error is already an instance of ApiError, pass it to the error handler
         error instanceof ApiError
             ? next(error)
             : next(new ApiError(500, "Something went wrong during login"));
     }
 };
 
-export const handleGuestLogin = async (req, res, next) => {
+const handleGuestLogin = async (req, res, next) => {
     try {
         const user = await User.findById(constants.GUEST_ID);
 
-        const { accessToken } = await user.generateAccessToken();
+        if (!user) {
+            throw new ApiError(404, "Guest account not found");
+        }
+
+        const accessToken = await user.generateAccessToken();
+
+        await UserCacheService.updateProfile(constants.GUEST_ID, user);
 
         res.cookie("accessToken", accessToken, {
             httpOnly: true,
@@ -225,8 +226,6 @@ export const handleGuestLogin = async (req, res, next) => {
             .status(200)
             .json(new ApiResponse(200, "Logged in successfully", user));
     } catch (error) {
-        console.log("Some Error Occured: ", error);
-        // If the error is already an instance of ApiError, pass it to the error handler
         error instanceof ApiError
             ? next(error)
             : next(
@@ -235,11 +234,27 @@ export const handleGuestLogin = async (req, res, next) => {
     }
 };
 
-export const handleLogout = async (req, res, next) => {
+const handleLogout = async (req, res, next) => {
     try {
-        const user = await User.findById(req.user._id);
+        const userId = req.user._id;
+        const isChef = req.user.role === "CHEF";
+
+        const user = await User.findById(userId);
         user.refreshToken = undefined; // Remove refresh token from db
         await user.save();
+
+        await Promise.all([
+            UserCacheService.invalidateProfile(userId),
+            UserCacheService.invalidateSubscriptions(userId),
+            UserCacheService.invalidateFavourites(userId),
+            UserCacheService.invalidateReviewsGiven(userId),
+            UserCacheService.invalidatePreferences(userId),
+            ...(isChef ? [
+                UserCacheService.invalidateChefRecipes(userId),
+                UserCacheService.invalidateChefSubscribers(userId),
+                UserCacheService.invalidateChefReviewSummary(userId),
+            ] : []),
+        ]);
 
         res.clearCookie("accessToken", {
             httpOnly: true,
@@ -257,15 +272,13 @@ export const handleLogout = async (req, res, next) => {
             .status(200)
             .json(new ApiResponse(200, "Logged out successfully"));
     } catch (error) {
-        console.log("Some Error Occured: ", error);
-        // If the error is already an instance of ApiError, pass it to the error handler
         error instanceof ApiError
             ? next(error)
             : next(new ApiError(500, "Something went wrong during logout"));
     }
 };
 
-export const handleChangeAvatar = async (req, res, next) => {
+const handleChangeAvatar = async (req, res, next) => {
     try {
         // Get avatar file from request
         const avatarLocalPath = req.file ? req.file.path : "";
@@ -275,24 +288,20 @@ export const handleChangeAvatar = async (req, res, next) => {
             throw new ApiError(400, "No avatar file provided");
         }
 
-        // Find current user
-        const user = await User.findById(req.user._id).select("profile.avatar");
-        if (!user) {
-            throw new ApiError(403, "User Not Found, please login again");
-        }
-
         // Upload avatar to Cloudinary
         const newAvatar = await uploadImageToCloud(avatarLocalPath, "USER");
         if (!newAvatar.public_id || !newAvatar.secure_url) {
             throw new ApiError(400, "Error uploading avatar");
         }
 
-        // Delete old avatar
-        // console.log(user?.profile?.avatar?.public_id);
-        const result = await deleteCloudFile(user?.profile?.avatar?.public_id);
-        if (!result) {
-            await deleteCloudFile(newAvatar.public_id);
-            throw new ApiError(400, "Error deleting old avatar");
+        // Delete old avatar if it exists
+        const oldAvatarId = req.user?.profile?.avatar?.public_id;
+        if (oldAvatarId) {
+            const result = await deleteCloudFile(oldAvatarId);
+            if (!result) {
+                await deleteCloudFile(newAvatar.public_id);
+                throw new ApiError(400, "Error deleting old avatar");
+            }
         }
 
         // Update DB user with new avatar
@@ -302,8 +311,7 @@ export const handleChangeAvatar = async (req, res, next) => {
             { new: true }
         );
 
-        await deleteCache(`user:${user._id}:profile`);
-        await setCache(`user:${user._id}:profile`, updatedUser, 3600);
+        await UserCacheService.updateProfile(req.user._id, updatedUser);
 
         res.status(200).json(
             new ApiResponse(
@@ -314,20 +322,15 @@ export const handleChangeAvatar = async (req, res, next) => {
         );
     } catch (error) {
         await deleteLocalFile(avatarLocalPath);
-        console.log("Some Error Occured: ", error);
-        // If the error is already an instance of ApiError, pass it to the error handler
-        if (error instanceof ApiError) {
-            return next(error);
-        }
-
-        // For all other errors, send a generic error message
-        return next(
-            new ApiError(500, "Something went wrong during file upload")
-        );
+        error instanceof ApiError
+            ? next(error)
+            : next(
+                new ApiError(500, "Something went wrong during file upload")
+            );
     }
 };
 
-export const handleChangePassword = async (req, res, next) => {
+const handleChangePassword = async (req, res, next) => {
     try {
         const { oldPassword, newPassword } = req.body;
         if (!oldPassword || !newPassword) {
@@ -350,25 +353,34 @@ export const handleChangePassword = async (req, res, next) => {
         }
 
         user.password = newPassword;
+        user.refreshToken = undefined;
         await user.save();
+
+        res.clearCookie("accessToken", {
+            httpOnly: true,
+            secure: true,
+            sameSite: "None",
+            path: "/",
+        }).clearCookie("refreshToken", {
+            httpOnly: true,
+            secure: true,
+            sameSite: "None",
+            path: "/",
+        });
 
         return res
             .status(200)
-            .json(new ApiResponse(200, "Password changed successfully"));
+            .json(new ApiResponse(200, "Password changed successfully. Please login again."));
     } catch (error) {
-        // If the error is already an instance of ApiError, pass it to the error handler
-        if (error instanceof ApiError) {
-            return next(error);
-        }
-
-        // For all other errors, send a generic error message
-        return next(
-            new ApiError(500, "Something went wrong during password change")
-        );
+        error instanceof ApiError
+            ? next(error)
+            : next(
+                new ApiError(500, "Something went wrong during password change")
+            );
     }
 };
 
-export const handleForgetPassword = async (req, res, next) => {
+const handleForgetPassword = async (req, res, next) => {
     try {
         const { email } = req.body;
         if (!email) {
@@ -432,7 +444,7 @@ export const handleForgetPassword = async (req, res, next) => {
     }
 };
 
-export const handleResetPassword = async (req, res, next) => {
+const handleResetPassword = async (req, res, next) => {
     try {
         const { resetToken, password } = req.body;
         if (!resetToken || !password) {
@@ -484,49 +496,9 @@ export const handleResetPassword = async (req, res, next) => {
     }
 };
 
-export const handleGetProfile = async (req, res, next) => {
+const handleGetMySubscriptions = async (req, res, next) => {
     try {
-        const cacheKey = `user:${req.user._id}:profile`;
-        let user = await getCache(cacheKey);
-
-        if (!user) {
-            user = await User.findOne({
-                _id: req.user._id,
-                isActive: true,
-            }).populate({
-                path: "chefProfile.reviews.userId",
-                select: "profile.name profile.avatar",
-            });
-
-            if (!user) {
-                throw new ApiError(404, "User not found");
-            }
-
-            await setCache(cacheKey, user, 3600);
-        }
-
-        return res
-            .status(200)
-            .json(
-                new ApiResponse(200, "Profile Data Fetched Successfully", user)
-            );
-    } catch (error) {
-        // If the error is already an instance of ApiError, pass it to the error handler
-        if (error instanceof ApiError) {
-            return next(error);
-        }
-
-        // For all other errors, send a generic error message
-        return next(
-            new ApiError(500, "Something went wrong during fetching profile")
-        );
-    }
-};
-
-export const handleGetMySubscriptions = async (req, res, next) => {
-    try {
-        const cacheKey = `user:${req.user._id}:subscriptions`;
-        let subscriptions = await getCache(cacheKey);
+        let subscriptions = await UserCacheService.getSubscriptions(req.user._id);
 
         if (!subscriptions) {
             const user = await User.findOne({
@@ -541,7 +513,7 @@ export const handleGetMySubscriptions = async (req, res, next) => {
             }
 
             subscriptions = user.profile?.subscribed || [];
-            await setCache(cacheKey, subscriptions, 3600);
+            await UserCacheService.updateSubscriptions(req.user._id, subscriptions);
         }
 
         return res
@@ -566,43 +538,7 @@ export const handleGetMySubscriptions = async (req, res, next) => {
     }
 };
 
-export const handleGetMyRecipes = async (req, res, next) => {
-    try {
-        const cacheKey = `user:${req.user._id}:recipes`;
-        let recipes = await getCache(cacheKey);
-
-        if (!recipes) {
-            const user = await User.findOne({
-                _id: req.user._id,
-                isActive: true,
-            })
-                .select("chefProfile.recipes")
-                .populate("chefProfile.recipes");
-
-            if (!user) {
-                throw new ApiError(404, "User not found");
-            }
-
-            recipes = user.chefProfile?.recipes || [];
-            await setCache(cacheKey, recipes, 3600);
-        }
-
-        return res
-            .status(200)
-            .json(
-                new ApiResponse(200, "Recipes Fetched Successfully", recipes)
-            );
-    } catch (error) {
-        if (error instanceof ApiError) {
-            return next(error);
-        }
-        return next(
-            new ApiError(500, "Something went wrong during fetching recipes")
-        );
-    }
-};
-
-export const handleUpdateProfile = async (req, res, next) => {
+const handleUpdateProfile = async (req, res, next) => {
     try {
         const user = req.user; // from auth middleware
 
@@ -684,18 +620,13 @@ export const handleUpdateProfile = async (req, res, next) => {
             { _id: user._id, isActive: true },
             { $set: updates },
             { new: true, runValidators: true }
-        ).populate({
-            path: "chefProfile.reviews.userId",
-            select: "profile.name profile.avatar",
-        });
+        )
 
         if (!updatedUser) {
             throw new ApiError(404, "User not found");
         }
 
-        const cacheKey = `user:${user._id}:profile`;
-        await deleteCache(cacheKey);
-        await setCache(cacheKey, updatedUser, 3600);
+        await UserCacheService.updateProfile(user._id, updatedUser);
 
         return res
             .status(200)
@@ -703,103 +634,46 @@ export const handleUpdateProfile = async (req, res, next) => {
                 new ApiResponse(200, "User updated successfully", updatedUser)
             );
     } catch (error) {
-        console.log("Some error occured: ", error);
-        if (error instanceof ApiError) {
-            return next(error);
-        }
-        return next(new ApiError(500, "Something went wrong during update"));
+        error instanceof ApiError
+            ? next(error)
+            : next(new ApiError(500, "Something went wrong during update"));
     }
 };
 
-export const handleGetUserById = async (req, res, next) => {
+const handleGetUserById = async (req, res, next) => {
     try {
         const userId = req.params.id;
-        const cacheKey = `user:${userId}:profile`;
-
-        let user = await getCache(cacheKey);
+        let user = await UserCacheService.getProfile(userId);
 
         if (!user) {
             user = await User.findOne({
                 _id: userId,
                 isActive: true,
-            }).select(
-                "-email -password -forgotPasswordToken -forgotPasswordExpiry"
-            ).populate({
-                path: "chefProfile.reviews.userId",
-                select: "profile.name profile.avatar",
             });
 
             if (!user) {
                 throw new ApiError(404, "User not found");
             }
 
-            await setCache(cacheKey, user, 3600);
+            await UserCacheService.updateProfile(userId, user);
         }
 
         return res
             .status(200)
             .json(new ApiResponse(200, "User fetched successfully", user));
     } catch (error) {
-        if (error instanceof ApiError) {
-            return next(error);
-        }
-        return next(
-            new ApiError(500, "Something went wrong during fetching user")
-        );
-    }
-};
-
-export const handleGetUserSubscriptionsById = async (req, res, next) => {
-    try {
-        const userId = req.params.id;
-        const cacheKey = `user:${userId}:subscriptions`;
-
-        let subscriptions = await getCache(cacheKey);
-
-        if (!subscriptions) {
-            const user = await User.findOne({
-                _id: userId,
-                isActive: true,
-            })
-                .select("profile.subscribed")
-                .populate("profile.subscribed");
-
-            if (!user) {
-                throw new ApiError(404, "User not found");
-            }
-
-            subscriptions = user.profile?.subscribed || [];
-            await setCache(cacheKey, subscriptions, 3600);
-        }
-
-        return res
-            .status(200)
-            .json(
-                new ApiResponse(
-                    200,
-                    "Subscriptions fetched successfully",
-                    subscriptions
-                )
+        error instanceof ApiError
+            ? next(error)
+            : next(
+                new ApiError(500, "Something went wrong during fetching user")
             );
-    } catch (error) {
-        if (error instanceof ApiError) {
-            return next(error);
-        }
-        return next(
-            new ApiError(
-                500,
-                "Something went wrong during fetching user subscriptions"
-            )
-        );
     }
 };
 
-export const handleGetUserRecipesById = async (req, res, next) => {
+const handleGetChefRecipesById = async (req, res, next) => {
     try {
         const userId = req.params.id;
-        const cacheKey = `user:${userId}:recipes`;
-
-        let recipes = await getCache(cacheKey);
+        let recipes = await UserCacheService.getChefRecipes(userId);
 
         if (!recipes) {
             const user = await User.findOne({
@@ -814,7 +688,7 @@ export const handleGetUserRecipesById = async (req, res, next) => {
             }
 
             recipes = user.chefProfile?.recipes || [];
-            await setCache(cacheKey, recipes, 3600);
+            await UserCacheService.updateChefRecipes(userId, recipes);
         }
 
         return res
@@ -823,19 +697,18 @@ export const handleGetUserRecipesById = async (req, res, next) => {
                 new ApiResponse(200, "Recipes fetched successfully", recipes)
             );
     } catch (error) {
-        if (error instanceof ApiError) {
-            return next(error);
-        }
-        return next(
-            new ApiError(
-                500,
-                "Something went wrong during fetching user recipes"
-            )
-        );
+        error instanceof ApiError
+            ? next(error)
+            : next(
+                new ApiError(
+                    500,
+                    "Something went wrong during fetching user recipes"
+                )
+            );
     }
 };
 
-export const handleContactus = async (req, res, next) => {
+const handleContactus = async (req, res, next) => {
     try {
         const { email, profile } = req.user;
         const { subject, message } = req.body;
@@ -873,12 +746,10 @@ export const handleContactus = async (req, res, next) => {
     }
 };
 
-export const handleGetFavourites = async (req, res, next) => {
+const handleGetFavourites = async (req, res, next) => {
     try {
         const userId = req.user._id;
-        const cacheKey = `user:${userId}:favourites`;
-
-        let favourites = await getCache(cacheKey);
+        let favourites = await UserCacheService.getFavourites(userId);
 
         if (!favourites) {
             const user = await User.findOne({
@@ -887,7 +758,7 @@ export const handleGetFavourites = async (req, res, next) => {
             }).populate("favourites");
 
             favourites = user.favourites;
-            await setCache(cacheKey, favourites, 3600);
+            await UserCacheService.updateFavourites(userId, favourites);
         }
 
         return res
@@ -900,9 +771,6 @@ export const handleGetFavourites = async (req, res, next) => {
                 )
             );
     } catch (error) {
-        console.log("Some error occured: ", error);
-
-        // If the error is already an instance of ApiError, pass it to the error handler
         error instanceof ApiError
             ? next(error)
             : next(
@@ -915,7 +783,7 @@ export const handleGetFavourites = async (req, res, next) => {
 };
 
 /*
-export const handleSubscribeToChef = async (req, res, next) => {
+const handleSubscribeToChef = async (req, res, next) => {
     try {
         const { chefId } = req.params;
         const userId = req.user._id;
@@ -980,7 +848,7 @@ export const handleSubscribeToChef = async (req, res, next) => {
 */
 
 /*
-export const handleUnsubscribeFromChef = async (req, res, next) => {
+const handleUnsubscribeFromChef = async (req, res, next) => {
     try {
         const { chefId } = req.params;
         const userId = req.user._id;
@@ -1031,7 +899,7 @@ export const handleUnsubscribeFromChef = async (req, res, next) => {
 };
 */
 
-export const addChefReview = async (req, res, next) => {
+const addChefReview = async (req, res, next) => {
     try {
         const { chefId } = req.params;
         const { rating, message } = req.body;
@@ -1077,10 +945,7 @@ export const addChefReview = async (req, res, next) => {
             {
                 new: true,
             }
-        ).populate({
-            path: "chefProfile.reviews.userId",
-            select: "profile.name profile.avatar",
-        });
+        );
 
         if (!updatedChef) {
             const chefExists = await User.exists({
@@ -1103,7 +968,7 @@ export const addChefReview = async (req, res, next) => {
         }
 
         // Keep User.reviewsGiven synchronized
-        await User.findByIdAndUpdate(userId, {
+        const updatedReviewer = await User.findByIdAndUpdate(userId, {
             $push: {
                 reviewsGiven: {
                     targetType: "CHEF",
@@ -1114,47 +979,36 @@ export const addChefReview = async (req, res, next) => {
                     updatedAt: new Date(),
                 },
             },
-        });
+        }, { new: true });
+
         const chefRecipes = await Recipe.find(
             { chefId },
             "_id"
         ).lean();
 
-        await deleteCache(`user:${userId}:profile`);
+        await UserCacheService.updateProfile(userId, updatedReviewer);
+        await UserCacheService.updateReviewsGiven(userId, updatedReviewer.reviewsGiven);
+        await UserCacheService.invalidateChefReviewSummary(chefId)
 
         recalculateChefRatings(updatedChef);
         await updatedChef.save();
-
-        await Promise.all([
-            deleteCache(`chef:${chefId}:reviews:summary`),
-            deleteCache(`user:${chefId}:profile`),
-            ...chefRecipes.map((recipe) =>
-                deleteCache(`recipe:${recipe._id}`)
-            ),
-        ]);
-
         const cachedChef = updatedChef.toObject();
 
-        await setCache(
-            `user:${chefId}:profile`,
-            cachedChef,
-            3600
-        );
+        await UserCacheService.updateProfile(chefId, cachedChef);
 
         return res
             .status(201)
             .json(new ApiResponse(201, "Review added successfully"));
     } catch (error) {
-        console.error("Error adding chef review:", error);
-        return next(
-            error instanceof ApiError
-                ? error
-                : new ApiError(500, "Something went wrong while adding chef review")
-        );
+        error instanceof ApiError
+            ? next(error)
+            : next(
+                new ApiError(500, "Something went wrong while adding chef review")
+            );
     }
 };
 
-export const updateChefReview = async (req, res, next) => {
+const updateChefReview = async (req, res, next) => {
     try {
         const { chefId } = req.params;
         const { rating, message } = req.body;
@@ -1192,10 +1046,7 @@ export const updateChefReview = async (req, res, next) => {
             {
                 new: true,
             }
-        ).populate({
-            path: "chefProfile.reviews.userId",
-            select: "profile.name profile.avatar",
-        });
+        );
 
         if (!updatedUser) {
             const chefExists = await User.exists({ _id: chefId, role: "CHEF", isActive: true });
@@ -1214,7 +1065,7 @@ export const updateChefReview = async (req, res, next) => {
             userUpdateFields["reviewsGiven.$[elem].message"] = message.trim();
         }
 
-        await User.findByIdAndUpdate(
+        const updatedReviewer = await User.findByIdAndUpdate(
             userId,
             { $set: userUpdateFields },
             {
@@ -1224,6 +1075,7 @@ export const updateChefReview = async (req, res, next) => {
                         "elem.targetId": chefId,
                     },
                 ],
+                new: true,
             }
         );
 
@@ -1232,41 +1084,30 @@ export const updateChefReview = async (req, res, next) => {
             "_id"
         ).lean();
 
-        await deleteCache(`user:${userId}:profile`);
+        await UserCacheService.updateProfile(userId, updatedReviewer);
+        await UserCacheService.updateReviewsGiven(userId, updatedReviewer.reviewsGiven);
+        await UserCacheService.invalidateChefReviewSummary(chefId)
 
         recalculateChefRatings(updatedUser);
         await updatedUser.save();
 
-        await Promise.all([
-            deleteCache(`chef:${chefId}:reviews:summary`),
-            deleteCache(`user:${chefId}:profile`),
-            ...chefRecipes.map((recipe) =>
-                deleteCache(`recipe:${recipe._id}`)
-            ),
-        ]);
-
         const cachedChef = updatedUser.toObject();
 
-        await setCache(
-            `user:${chefId}:profile`,
-            cachedChef,
-            3600
-        );
+        await UserCacheService.updateProfile(chefId, cachedChef);
 
         return res
             .status(200)
             .json(new ApiResponse(200, "Review updated successfully"));
     } catch (error) {
-        console.error("Error updating chef review:", error);
-        return next(
-            error instanceof ApiError
-                ? error
-                : new ApiError(500, "Something went wrong while updating chef review")
-        );
+        error instanceof ApiError
+            ? next(error)
+            : next(
+                new ApiError(500, "Something went wrong while updating chef review")
+            );
     }
 };
 
-export const deleteChefReview = async (req, res, next) => {
+const deleteChefReview = async (req, res, next) => {
     try {
         const { chefId } = req.params;
         const userId = req.user._id;
@@ -1284,10 +1125,7 @@ export const deleteChefReview = async (req, res, next) => {
             },
             { $pull: { "chefProfile.reviews": { userId } } },
             { new: true }
-        ).populate({
-            path: "chefProfile.reviews.userId",
-            select: "profile.name profile.avatar",
-        });
+        );
 
         if (!updatedUser) {
             const chefExists = await User.exists({ _id: chefId, role: "CHEF", isActive: true });
@@ -1298,40 +1136,30 @@ export const deleteChefReview = async (req, res, next) => {
         }
 
         // Keep User.reviewsGiven synchronized
-        await User.findByIdAndUpdate(userId, {
+        const updatedReviewer = await User.findByIdAndUpdate(userId, {
             $pull: {
                 reviewsGiven: {
                     targetType: "CHEF",
                     targetId: new mongoose.Types.ObjectId(chefId),
                 },
             },
-        });
+        }, { new: true });
 
         const chefRecipes = await Recipe.find(
             { chefId },
             "_id"
         ).lean();
 
-        await deleteCache(`user:${userId}:profile`);
+        await UserCacheService.updateProfile(userId, updatedReviewer);
+        await UserCacheService.updateReviewsGiven(userId, updatedReviewer.reviewsGiven);
+        await UserCacheService.invalidateChefReviewSummary(chefId)
 
         recalculateChefRatings(updatedUser);
         await updatedUser.save();
 
-        await Promise.all([
-            deleteCache(`chef:${chefId}:reviews:summary`),
-            deleteCache(`user:${chefId}:profile`),
-            ...chefRecipes.map((recipe) =>
-                deleteCache(`recipe:${recipe._id}`)
-            ),
-        ]);
-
         const cachedChef = updatedUser.toObject();
 
-        await setCache(
-            `user:${chefId}:profile`,
-            cachedChef,
-            3600
-        );
+        await UserCacheService.updateProfile(chefId, cachedChef);
 
         return res
             .status(200)
@@ -1346,7 +1174,7 @@ export const deleteChefReview = async (req, res, next) => {
     }
 };
 
-export const getAllReviews = async (req, res, next) => {
+const getAllChefReviews = async (req, res, next) => {
     try {
         const { chefId } = req.params;
         const page = parseInt(req.query.page) || 1;
@@ -1356,8 +1184,7 @@ export const getAllReviews = async (req, res, next) => {
             throw new ApiError(400, "Invalid chef ID format");
         }
 
-        const cacheKey = `chef:${chefId}:reviews:summary`;
-        let summaryData = await getCache(cacheKey);
+        let summaryData = await UserCacheService.getChefReviewSummary(chefId);
 
         if (!summaryData) {
             const chef = await User.findOne({
@@ -1385,7 +1212,7 @@ export const getAllReviews = async (req, res, next) => {
                 reviews: reviewsList
             };
 
-            await setCache(cacheKey, summaryData, 3600);
+            await UserCacheService.updateChefReviewSummary(chefId, summaryData);
         }
 
         // Apply pagination and sorting in-memory
@@ -1412,11 +1239,33 @@ export const getAllReviews = async (req, res, next) => {
             })
         );
     } catch (error) {
-        console.error("Error fetching chef review summary:", error);
-        return next(
-            error instanceof ApiError
-                ? error
-                : new ApiError(500, "Something went wrong while fetching chef review summary")
-        );
+        error instanceof ApiError
+            ? next(error)
+            : next(
+                new ApiError(500, "Something went wrong while fetching chef review summary")
+            );
     }
+};
+
+export {
+    handleRegister,
+    handleLogin,
+    handleGuestLogin,
+    handleLogout,
+    handleChangeAvatar,
+    handleChangePassword,
+    handleForgetPassword,
+    handleResetPassword,
+    handleGetMySubscriptions,
+    handleUpdateProfile,
+    handleGetUserById,
+    handleGetChefRecipesById,
+    handleContactus,
+    handleGetFavourites,
+    // handleSubscribeToChef,
+    // handleUnsubscribeFromChef,
+    addChefReview,
+    updateChefReview,
+    deleteChefReview,
+    getAllChefReviews
 };
