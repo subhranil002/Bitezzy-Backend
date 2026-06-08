@@ -162,7 +162,7 @@ const recipeSchema = new mongoose.Schema(
             },
         ],
 
-        likeCount: [
+        likes: [
             {
                 type: mongoose.Schema.Types.ObjectId,
                 ref: "User",

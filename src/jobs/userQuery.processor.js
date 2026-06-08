@@ -1,5 +1,7 @@
 import { Worker } from "node:worker_threads";
 
+const WORKER_TIMEOUT_MS = 30_000;
+
 export function userQueryProcessor(payload) {
     return new Promise((resolve, reject) => {
         const worker = new Worker(
@@ -9,18 +11,33 @@ export function userQueryProcessor(payload) {
             }
         );
 
+        const timeout = setTimeout(() => {
+            worker.terminate();
+            reject(new Error("Worker timeout"));
+        }, WORKER_TIMEOUT_MS);
+
         worker.once("message", (message) => {
+            clearTimeout(timeout);
+            worker.terminate();
+
             if (message?.error) {
-                reject(new Error(message.error));
-                return;
+                return reject(new Error(message.error));
             }
 
             resolve(message);
         });
-        worker.once("error", reject);
+
+        worker.once("error", (error) => {
+            clearTimeout(timeout);
+            worker.terminate();
+            reject(error);
+        });
+
         worker.once("exit", (code) => {
+            clearTimeout(timeout);
+
             if (code !== 0) {
-                reject(new Error(`Recipe worker exited with code ${code}`));
+                reject(new Error(`Bitebot worker exited with code ${code}`));
             }
         });
     });

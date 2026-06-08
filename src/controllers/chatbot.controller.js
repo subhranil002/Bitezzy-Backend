@@ -1,16 +1,16 @@
 import { ApiError, ApiResponse } from "../utils/index.js";
 import { userQueryProcessor } from "../jobs/userQuery.processor.js";
 
-export async function recipeChat(req, res, next) {
+export async function bitebot(req, res, next) {
     try {
         const { messages, toolInUse, language } = req.body;
 
-        if (!messages) {
+        if (!Array.isArray(messages) || messages.length === 0) {
             throw new ApiError(400, "No user input provided");
         }
 
         const result = await userQueryProcessor({
-            messages,
+            messages: messages,
             toolInUse: toolInUse ?? {
                 isRecipeSearch: false,
                 isCookingTip: false,
@@ -25,9 +25,11 @@ export async function recipeChat(req, res, next) {
             })
         );
     } catch (error) {
-        console.error(error);
+        console.error("Error while chatting with Bitebot:", error);
         return next(
-            new ApiError(500, `recipe.controller :: recipeChat: ${error}`)
+            error instanceof ApiError
+                ? error
+                : new ApiError(500, "Something went wrong while chatting with Bitebot")
         );
     }
 }

@@ -128,6 +128,7 @@ const handleRegister = async (req, res, next) => {
             })
         );
     } catch (error) {
+        console.error("Error registering user:", error);
         error instanceof ApiError
             ? next(error)
             : next(
@@ -196,6 +197,7 @@ const handleLogin = async (req, res, next) => {
             .status(200)
             .json(new ApiResponse(200, "Login Successful", user));
     } catch (error) {
+        console.error("Error logging in:", error);
         error instanceof ApiError
             ? next(error)
             : next(new ApiError(500, "Something went wrong during login"));
@@ -226,6 +228,7 @@ const handleGuestLogin = async (req, res, next) => {
             .status(200)
             .json(new ApiResponse(200, "Logged in successfully", user));
     } catch (error) {
+        console.error("Error logging in:", error);
         error instanceof ApiError
             ? next(error)
             : next(
@@ -272,6 +275,7 @@ const handleLogout = async (req, res, next) => {
             .status(200)
             .json(new ApiResponse(200, "Logged out successfully"));
     } catch (error) {
+        console.error("Error logging out:", error);
         error instanceof ApiError
             ? next(error)
             : next(new ApiError(500, "Something went wrong during logout"));
@@ -322,6 +326,7 @@ const handleChangeAvatar = async (req, res, next) => {
         );
     } catch (error) {
         await deleteLocalFile(avatarLocalPath);
+        console.error("Error changing avatar:", error);
         error instanceof ApiError
             ? next(error)
             : next(
@@ -372,6 +377,7 @@ const handleChangePassword = async (req, res, next) => {
             .status(200)
             .json(new ApiResponse(200, "Password changed successfully. Please login again."));
     } catch (error) {
+        console.error("Error changing password:", error);
         error instanceof ApiError
             ? next(error)
             : next(
@@ -433,6 +439,7 @@ const handleForgetPassword = async (req, res, next) => {
             .status(200)
             .json(new ApiResponse(200, `Mail sent successfully on ${email}`));
     } catch (error) {
+        console.error("Error forgetting password:", error);
         error instanceof ApiError
             ? next(error)
             : next(
@@ -485,6 +492,7 @@ const handleResetPassword = async (req, res, next) => {
             .status(200)
             .json(new ApiResponse(200, "Password reset successfully"));
     } catch (error) {
+        console.error("Error resetting password:", error);
         error instanceof ApiError
             ? next(error)
             : next(
@@ -526,15 +534,15 @@ const handleGetMySubscriptions = async (req, res, next) => {
                 )
             );
     } catch (error) {
-        if (error instanceof ApiError) {
-            return next(error);
-        }
-        return next(
-            new ApiError(
-                500,
-                "Something went wrong during fetching subscriptions"
-            )
-        );
+        console.error("Error fetching subscriptions:", error);
+        error instanceof ApiError
+            ? next(error)
+            : next(
+                new ApiError(
+                    500,
+                    "Something went wrong during fetching subscriptions"
+                )
+            );
     }
 };
 
@@ -634,6 +642,7 @@ const handleUpdateProfile = async (req, res, next) => {
                 new ApiResponse(200, "User updated successfully", updatedUser)
             );
     } catch (error) {
+        console.error("Error updating user:", error);
         error instanceof ApiError
             ? next(error)
             : next(new ApiError(500, "Something went wrong during update"));
@@ -662,6 +671,7 @@ const handleGetUserById = async (req, res, next) => {
             .status(200)
             .json(new ApiResponse(200, "User fetched successfully", user));
     } catch (error) {
+        console.error("Error fetching user:", error);
         error instanceof ApiError
             ? next(error)
             : next(
@@ -704,6 +714,7 @@ const handleGetMySubscribers = async (req, res, next) => {
                 )
             );
     } catch (error) {
+        console.error("Error fetching subscribers:", error);
         error instanceof ApiError
             ? next(error)
             : next(
@@ -742,12 +753,13 @@ const handleGetChefRecipesById = async (req, res, next) => {
                 new ApiResponse(200, "Recipes fetched successfully", recipes)
             );
     } catch (error) {
+        console.error("Error fetching chef recipes:", error);
         error instanceof ApiError
             ? next(error)
             : next(
                 new ApiError(
                     500,
-                    "Something went wrong during fetching user recipes"
+                    "Something went wrong during fetching chef recipes"
                 )
             );
     }
@@ -780,6 +792,7 @@ const handleContactus = async (req, res, next) => {
             .status(200)
             .json(new ApiResponse(200, "Message sent successfully"));
     } catch (error) {
+        console.error("Error sending contact us message:", error);
         error instanceof ApiError
             ? next(error)
             : next(
@@ -816,6 +829,7 @@ const handleGetFavourites = async (req, res, next) => {
                 )
             );
     } catch (error) {
+        console.error("Error fetching favourites:", error);
         error instanceof ApiError
             ? next(error)
             : next(
@@ -1045,6 +1059,7 @@ const addChefReview = async (req, res, next) => {
             .status(201)
             .json(new ApiResponse(201, "Review added successfully"));
     } catch (error) {
+        console.error("Error adding chef review:", error);
         error instanceof ApiError
             ? next(error)
             : next(
@@ -1144,6 +1159,7 @@ const updateChefReview = async (req, res, next) => {
             .status(200)
             .json(new ApiResponse(200, "Review updated successfully"));
     } catch (error) {
+        console.error("Error updating chef review:", error);
         error instanceof ApiError
             ? next(error)
             : next(
@@ -1284,6 +1300,7 @@ const getAllChefReviews = async (req, res, next) => {
             })
         );
     } catch (error) {
+        console.error("Error fetching chef review summary:", error);
         error instanceof ApiError
             ? next(error)
             : next(
@@ -1320,6 +1337,7 @@ const handleGetMyReviewsGiven = async (req, res, next) => {
             new ApiResponse(200, "Reviews given fetched successfully", reviewsGiven)
         );
     } catch (error) {
+        console.error("Error fetching reviews given:", error);
         error instanceof ApiError
             ? next(error)
             : next(new ApiError(500, "Something went wrong while fetching reviews given"));

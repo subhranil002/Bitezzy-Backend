@@ -1,4 +1,3 @@
-import "dotenv/config";
 import { parentPort, workerData } from "node:worker_threads";
 import { bitebotGraph } from "../ai/graphs/bitebot.graph.js";
 
@@ -6,7 +5,6 @@ import { bitebotGraph } from "../ai/graphs/bitebot.graph.js";
     try {
         const { messages, toolInUse, language } = workerData;
 
-        // Invoke graph
         const result = await bitebotGraph.invoke({
             messages,
             toolInUse,
@@ -19,7 +17,10 @@ import { bitebotGraph } from "../ai/graphs/bitebot.graph.js";
         });
     } catch (error) {
         parentPort?.postMessage({
-            error: error instanceof Error ? error.message : String(error),
+            error: {
+                message: error instanceof Error ? error.message : String(error),
+                stack: error instanceof Error ? error.stack : undefined,
+            },
         });
     }
 })();
