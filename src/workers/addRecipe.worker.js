@@ -8,6 +8,7 @@ import { v7 as uuidv7 } from "uuid";
 import mongoose from "mongoose";
 import "dotenv/config";
 import getNutritionValues from "../utils/getNutritionValues.js";
+import UserCacheService from "../services/cache/user.cache.js";
 
 async function addRecipe(data, files, userId) {
     console.log("📤🖼️ Uploading thumbnail...");
@@ -38,6 +39,9 @@ async function addRecipe(data, files, userId) {
         uuid,
     });
     console.log(`🍲✅ Recipe created (ID: ${recipe._id})`);
+
+    await UserCacheService.invalidateChefRecipes(recipe.chefId);
+    console.log("🎯✅ Chef's cached recipes invalidated");
 
     const user = await User.findById(userId);
     const chefName = user?.profile?.name;

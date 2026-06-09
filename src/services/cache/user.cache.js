@@ -19,6 +19,12 @@ class UserCacheService {
             delete safeProfile.refreshToken;
             delete safeProfile.forgotPasswordToken;
             delete safeProfile.forgotPasswordExpiry;
+            if (safeProfile.chefProfile?.reviews) {
+                safeProfile = {
+                    ...safeProfile,
+                    chefProfile: { ...safeProfile.chefProfile, reviews: undefined },
+                };
+            }
         }
         return setCache(`user:${userId}:profile`, safeProfile, ttl);
     }

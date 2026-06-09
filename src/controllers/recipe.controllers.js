@@ -4,8 +4,8 @@ import { ApiResponse, ApiError } from "../utils/index.js";
 import User from "../models/user.models.js";
 import { similaritySearch } from "../services/vectorService.js";
 import { recipeQueue } from "../configs/queue.config.js";
-import { getCache, setCache, deleteCache } from "../utils/redisUtils.js";
 import UserCacheService from "../services/cache/user.cache.js";
+import RecipeCacheService from "../services/cache/recipe.cache.js";
 import { recalculateRecipeRatings } from "../utils/recalculateRecipeRatings.js";
 
 // create Recipe
@@ -57,7 +57,10 @@ const addRecipe = async (req, res, next) => {
                 )
             );
     } catch (err) {
-        next(err);
+        console.error("Error adding recipe:", err);
+        err instanceof ApiError
+            ? next(err)
+            : next(new ApiError(500, "Something went wrong during recipe creation"));
     }
 };
 
@@ -161,8 +164,8 @@ const getAllRecipes = async (req, res, next) => {
                     $ifNull: [{ $avg: "$reviews.rating" }, 0],
                 },
                 // Like count (needed for trending/premium/recommended sorting)
-                likeCountNum: {
-                    $size: { $ifNull: ["$likeCount", []] },
+                likesNum: {
+                    $size: { $ifNull: ["$likes", []] },
                 },
             },
         });
@@ -200,7 +203,7 @@ const getAllRecipes = async (req, res, next) => {
         // Sorting logic
         let sortStage = {};
         if (filters.trending || filters.premium || filters.recommended) {
-            sortStage = { likeCountNum: -1, createdAt: -1 };
+            sortStage = { likesNum: -1, createdAt: -1 };
         } else if (filters.quick) {
             sortStage = { totalCookingTime: 1, createdAt: -1 };
         } else if (filters.fresh) {
@@ -216,9 +219,21 @@ const getAllRecipes = async (req, res, next) => {
         pipeline.push({ $skip: startIndex });
         pipeline.push({ $limit: limit });
 
+        // Standardization of projection for feed/card views
+        pipeline.push({
+            $project: {
+                reviews: 0,
+                steps: 0,
+                externalMediaLinks: 0,
+                ingredients: 0,
+            },
+        });
+
         // Execute aggregation
         const recipes = await Recipe.aggregate(pipeline);
         const count = recipes.length;
+
+
 
         // Final response
         return res.status(200).json(
@@ -228,7 +243,7 @@ const getAllRecipes = async (req, res, next) => {
             })
         );
     } catch (error) {
-        console.log("GetAllRecipes Error:", error);
+        console.log("Error while fetching all recipes:", error);
         return next(
             error instanceof ApiError
                 ? error
@@ -239,27 +254,24 @@ const getAllRecipes = async (req, res, next) => {
 
 const getRecipeById = async (req, res, next) => {
     try {
-        const cacheKey = `recipe:${req.params.id}`;
-        let recipe = await getCache(cacheKey);
+        const recipeId = req.params.id;
+        let recipe = await RecipeCacheService.getRecipeDetail(recipeId);
 
         if (!recipe) {
             recipe = await Recipe.findOne({
-                _id: req.params.id,
+                _id: recipeId,
                 isActive: true,
-            }).populate("chefId", "profile.name profile.avatar chefProfile.averageRating  chefProfile.reviews");
+            }).populate("chefId", "profile.name profile.avatar chefProfile.averageRating chefProfile.reviews");
 
             if (!recipe) {
                 throw new ApiError(404, "Recipe not found");
             }
 
-            await setCache(cacheKey, recipe, 3600);
+            await RecipeCacheService.updateRecipeDetail(recipeId, recipe.toObject());
+            recipe = recipe.toObject();
         }
 
-        // Premium Access Logic
-        const chefId = recipe.chefId._id
-            ? recipe.chefId._id.toString()
-            : recipe.chefId.toString();
-
+        const chefId = recipe.chefId.toString()
         const userId = req.user?._id?.toString();
 
         // Allow access if user is the chef (recipe owner)
@@ -306,12 +318,13 @@ const getRecipeById = async (req, res, next) => {
         });
 
         await UserCacheService.invalidatePreferences(userId);
+        await UserCacheService.invalidateProfile(userId);
 
         return res
             .status(200)
             .json(new ApiResponse(200, "Recipe found", recipe));
     } catch (error) {
-        console.log("Some Error Occured: ", error);
+        console.log("Error while fetching single recipe: ", error);
         return next(
             error instanceof ApiError
                 ? error
@@ -325,25 +338,32 @@ const getRecipeById = async (req, res, next) => {
 
 const updateRecipe = async (req, res, next) => {
     try {
+        const recipeId = req.params.id;
         const recipe = await Recipe.findOneAndUpdate(
-            { _id: req.params.id, isActive: true },
+            { _id: recipeId, isActive: true },
             req.body,
             {
                 new: true,
                 runValidators: true,
             }
-        ).populate("chefId");
+        ).populate("chefId", "profile.name profile.avatar chefProfile.averageRating chefProfile.reviews");
+
         if (!recipe) {
             throw new ApiError(404, "Recipe not found");
         }
-        // Update cache directly
-        await setCache(`recipe:${req.params.id}`, recipe, 3600);
+
+        // Update detail cache with fresh populated data; invalidate feed caches
+        await Promise.all([
+            RecipeCacheService.updateRecipeDetail(recipeId, recipe.toObject()),
+            RecipeCacheService.invalidateAllFeeds(),
+            UserCacheService.invalidateChefRecipes(recipe.chefId)
+        ]);
 
         await recipeQueue.add(
             "recipe-queue",
             {
                 type: "UPDATE",
-                recipe: recipe,
+                recipe: recipe.toObject(),
             },
             { removeOnComplete: true, removeOnFail: true }
         );
@@ -352,23 +372,20 @@ const updateRecipe = async (req, res, next) => {
             .status(200)
             .json(new ApiResponse(200, "Recipe updated successfully", recipe));
     } catch (error) {
-        console.log("Some Error Occured: ", error);
-        // If the error is already an instance of ApiError, pass it to the error handler
-        if (error instanceof ApiError) {
-            return next(error);
-        }
-
-        // For all other errors, send a generic error message
+        console.log("Error while updating recipe:", error);
         return next(
-            new ApiError(500, "Something went wrong during recipe update")
+            error instanceof ApiError
+                ? error
+                : new ApiError(500, "Something went wrong during recipe update")
         );
     }
 };
 
 const deleteRecipe = async (req, res, next) => {
     try {
+        const recipeId = req.params.id;
         const recipe = await Recipe.findOneAndUpdate(
-            { _id: req.params.id, isActive: true },
+            { _id: recipeId, isActive: true },
             { $set: { isActive: false } },
             { new: true }
         );
@@ -376,14 +393,18 @@ const deleteRecipe = async (req, res, next) => {
             throw new ApiError(404, "Recipe not found");
         }
 
-        // Invalidate cache
-        await deleteCache(`recipe:${req.params.id}`);
+        // Invalidate all recipe keys + feed caches
+        await Promise.all([
+            RecipeCacheService.invalidateRecipeAllKeys(recipeId),
+            RecipeCacheService.invalidateAllFeeds(),
+            UserCacheService.invalidateChefRecipes(recipe.chefId)
+        ]);
 
         await recipeQueue.add(
             "recipe-queue",
             {
                 type: "DELETE",
-                recipe: recipe,
+                recipe: recipe.toObject(),
             },
             { removeOnComplete: true, removeOnFail: true }
         );
@@ -392,16 +413,12 @@ const deleteRecipe = async (req, res, next) => {
             .status(200)
             .json(new ApiResponse(200, "Recipe deleted successfully"));
     } catch (error) {
-        console.log("Some Error Occured: ", error);
-
-        error instanceof ApiError
-            ? next(error)
-            : next(
-                new ApiError(
-                    500,
-                    "Something went wrong during recipe deletion"
-                )
-            );
+        console.log("Error while deleting recipe:", error);
+        return next(
+            error instanceof ApiError
+                ? error
+                : new ApiError(500, "Something went wrong during recipe deletion")
+        );
     }
 };
 
@@ -409,10 +426,9 @@ const HandleGetTrendingRecipes = async (req, res, next) => {
     try {
         // const thirtyDaysAgo = new Date();
         // thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-        const limit = Number(req.query.limit) || 10;
-        const cacheKey = `feed:trending:${limit}`;
+        const limit = Number(req.query.limit) || 12;
 
-        let trendingRecipes = await getCache(cacheKey);
+        let trendingRecipes = await RecipeCacheService.getTrendingFeed(limit);
 
         if (!trendingRecipes) {
             trendingRecipes = await Recipe.aggregate([
@@ -433,36 +449,33 @@ const HandleGetTrendingRecipes = async (req, res, next) => {
                 // Compute like count
                 {
                     $addFields: {
-                        likeCountTotal: {
-                            $size: { $ifNull: ["$likeCount", []] },
+                        likesTotal: {
+                            $size: { $ifNull: ["$likes", []] },
                         },
                     },
                 },
 
-                // Sort by likeCount desc
-                { $sort: { likeCountTotal: -1, createdAt: -1 } },
+                // Sort by likes desc
+                { $sort: { likesTotal: -1, createdAt: -1 } },
 
                 // Limit to 10
                 { $limit: limit },
 
                 {
                     $project: {
-                        _id: 1,
-                        title: 1,
-                        description: 1,
-                        "thumbnail.secure_url": 1,
-                        chefId: 1,
-                        isPremium: 1,
-                        servings: 1,
-                        cuisine: 1,
-                        dietaryLabels: 1,
-                        likeCount: 1,
+                        reviews: 0,
+                        steps: 0,
+                        externalMediaLinks: 0,
+                        ingredients: 0,
                     },
                 },
             ]);
-            await setCache(cacheKey, trendingRecipes, 300);
+
+
+
+            await RecipeCacheService.updateTrendingFeed(limit, trendingRecipes);
         }
-        // console.log(likeCountTotal);
+        // console.log(likesTotal);
         // console.log(trendingRecipes);
 
         return res
@@ -475,25 +488,20 @@ const HandleGetTrendingRecipes = async (req, res, next) => {
                 )
             );
     } catch (error) {
-        console.log("Error Occured While Fetching Trending Recipes: ", error);
-
+        console.log("Error while fetching trending recipes:", error);
         return next(
             error instanceof ApiError
                 ? error
-                : new ApiError(
-                    500,
-                    "Something went wrong fetching trending recipes"
-                )
+                : new ApiError(500, "Something went wrong fetching trending recipes")
         );
     }
 };
 
 const HandleGetFreshRecipes = async (req, res, next) => {
     try {
-        const limit = Number(req.query.limit) || 10;
-        const cacheKey = `feed:fresh:${limit}`;
+        const limit = Number(req.query.limit) || 12;
 
-        let freshRecipes = await getCache(cacheKey);
+        let freshRecipes = await RecipeCacheService.getFreshFeed(limit);
 
         if (!freshRecipes) {
             freshRecipes = await Recipe.aggregate([
@@ -511,20 +519,17 @@ const HandleGetFreshRecipes = async (req, res, next) => {
                 },
                 {
                     $project: {
-                        _id: 1,
-                        title: 1,
-                        description: 1,
-                        "thumbnail.secure_url": 1,
-                        chefId: 1,
-                        isPremium: 1,
-                        servings: 1,
-                        cuisine: 1,
-                        dietaryLabels: 1,
-                        likeCount: 1,
+                        reviews: 0,
+                        steps: 0,
+                        externalMediaLinks: 0,
+                        ingredients: 0,
                     },
                 },
             ]);
-            await setCache(cacheKey, freshRecipes, 300);
+
+
+
+            await RecipeCacheService.updateFreshFeed(limit, freshRecipes);
         }
 
         return res
@@ -537,26 +542,21 @@ const HandleGetFreshRecipes = async (req, res, next) => {
                 )
             );
     } catch (error) {
-        console.log("Error fetching fresh recipes:", error);
-
+        console.log("Error while fetching fresh recipes:", error);
         return next(
             error instanceof ApiError
                 ? error
-                : new ApiError(
-                    500,
-                    "Something went wrong fetching fresh recipes"
-                )
+                : new ApiError(500, "Something went wrong fetching fresh recipes")
         );
     }
 };
 
 const HandleGetQuickRecipes = async (req, res, next) => {
     try {
-        const limit = Number(req.query.limit) || 10;
+        const limit = Number(req.query.limit) || 12;
         const maxTime = Number(req.query.maxTime);
-        const cacheKey = `feed:quick:${limit}:${maxTime || "all"}`;
 
-        let quickRecipes = await getCache(cacheKey);
+        let quickRecipes = await RecipeCacheService.getQuickFeed(limit, maxTime);
 
         if (!quickRecipes) {
             const pipeline = [];
@@ -581,25 +581,20 @@ const HandleGetQuickRecipes = async (req, res, next) => {
                 { $limit: limit },
                 {
                     $project: {
-                        _id: 1,
-                        title: 1,
-                        description: 1,
-                        "thumbnail.secure_url": 1,
-                        chefId: 1,
-                        isPremium: 1,
-                        servings: 1,
-                        cuisine: 1,
-                        dietaryLabels: 1,
-                        likeCount: 1,
-                        // totalCookingTime: 1,
+                        reviews: 0,
+                        steps: 0,
+                        externalMediaLinks: 0,
+                        ingredients: 0,
                     },
                 }
             );
 
             quickRecipes = await Recipe.aggregate(pipeline);
 
+
+
             // console.log(quickRecipes);
-            await setCache(cacheKey, quickRecipes, 300);
+            await RecipeCacheService.updateQuickFeed(limit, maxTime, quickRecipes);
         }
 
         return res
@@ -612,8 +607,7 @@ const HandleGetQuickRecipes = async (req, res, next) => {
                 )
             );
     } catch (error) {
-        console.log("Error fetching quick recipes:", error);
-
+        console.log("Error while fetching quick recipes:", error);
         return next(
             error instanceof ApiError
                 ? error
@@ -627,10 +621,9 @@ const HandleGetQuickRecipes = async (req, res, next) => {
 
 const HandleGetPremiumRecipes = async (req, res, next) => {
     try {
-        const limit = Number(req.query.limit) || 10;
-        const cacheKey = `feed:premium:${limit}`;
+        const limit = Number(req.query.limit) || 12;
 
-        let premiumRecipes = await getCache(cacheKey);
+        let premiumRecipes = await RecipeCacheService.getPremiumFeed(limit);
         if (!premiumRecipes) {
             premiumRecipes = await Recipe.aggregate([
                 {
@@ -642,22 +635,17 @@ const HandleGetPremiumRecipes = async (req, res, next) => {
                 { $limit: limit },
                 {
                     $project: {
-                        _id: 1,
-                        title: 1,
-                        description: 1,
-                        "thumbnail.secure_url": 1,
-                        chefId: 1,
-                        isPremium: 1,
-                        servings: 1,
-                        cuisine: 1,
-                        dietaryLabels: 1,
-                        likeCount: 1,
-                        // totalCookingTime: 1,
+                        reviews: 0,
+                        steps: 0,
+                        externalMediaLinks: 0,
+                        ingredients: 0,
                     },
                 },
             ]);
 
-            await setCache(cacheKey, premiumRecipes, 300);
+
+
+            await RecipeCacheService.updatePremiumFeed(limit, premiumRecipes);
         }
 
         return res
@@ -670,8 +658,7 @@ const HandleGetPremiumRecipes = async (req, res, next) => {
                 )
             );
     } catch (error) {
-        console.log("Error fetching premium recipes:", error);
-
+        console.log("Error while fetching premium recipes:", error);
         return next(
             error instanceof ApiError
                 ? error
@@ -687,9 +674,8 @@ const HandleGetRecommendedRecipes = async (req, res, next) => {
     try {
         const limit = req.query.limit ? Number(req.query.limit) : 10;
         const userId = req?.user?._id?.toString() || "guest";
-        const cacheKey = `feed:recommended:${userId}:${limit}`;
 
-        let recommendedRecipes = await getCache(cacheKey);
+        let recommendedRecipes = await RecipeCacheService.getRecommendedFeed(userId, limit);
         if (!recommendedRecipes) {
             // Get the logged-in user's preferences
             const { cuisine, dietaryLabels } = req?.user?.profile || {};
@@ -715,9 +701,11 @@ const HandleGetRecommendedRecipes = async (req, res, next) => {
             const uuids = similarRecipes.map((item) => item.id);
             recommendedRecipes = await Recipe.find({
                 uuid: { $in: uuids },
-            }).select("-ingredients -steps -reviews -externalMediaLinks");
+            }).select("-ingredients -steps -reviews -externalMediaLinks").lean();
 
-            await setCache(cacheKey, recommendedRecipes, 300); // 300s for recommended
+
+
+            await RecipeCacheService.updateRecommendedFeed(userId, limit, recommendedRecipes);
         }
 
         // Send success response
@@ -731,8 +719,7 @@ const HandleGetRecommendedRecipes = async (req, res, next) => {
                 )
             );
     } catch (error) {
-        console.log("Error fetching recommended recipes:", error);
-
+        console.log("Error while fetching recommended recipes:", error);
         return next(
             error instanceof ApiError
                 ? error
@@ -753,36 +740,44 @@ const handleLikeRecipe = async (req, res, next) => {
         if (!recipe) {
             return next(new ApiError(404, "Recipe not found"));
         }
-        const alreadyLiked = recipe.likeCount?.includes(user._id);
+        const alreadyLiked = recipe.likes?.includes(user._id);
 
         if (alreadyLiked) {
             return res.status(200).json(
                 new ApiResponse(200, "Recipe added to favourites", {
                     recipeId,
                     liked: true,
-                    totalLikes: recipe.likeCount.length,
+                    totalLikes: recipe.likes.length,
                 })
             );
         }
-        // add like
-        recipe.likeCount.push(user._id);
-        user.favourites.push(recipeId);
+        // Add like atomically + update user favourites atomically
+        const [updatedRecipe, updatedUser] = await Promise.all([
+            Recipe.findByIdAndUpdate(
+                recipeId,
+                { $addToSet: { likes: user._id } },
+                { new: true }
+            ),
+            User.findByIdAndUpdate(
+                user._id,
+                { $addToSet: { favourites: recipeId } },
+                { new: true }
+            ),
+        ]);
 
-        // concurrent save instead of sequential
-        await Promise.all([recipe.save(), user.save()]);
-
-        // Update caches directly
-        await deleteCache(`recipe:${recipeId}`);
-
-        // Update UserCache directly
-        await UserCacheService.updateProfile(user._id, user);
-        await UserCacheService.updateFavourites(user._id, user.favourites);
+        // Invalidate detail cache and feeds; update user caches from fresh DB data
+        await Promise.all([
+            RecipeCacheService.invalidateRecipeDetail(recipeId),
+            RecipeCacheService.invalidateAllFeeds(),
+            UserCacheService.updateProfile(user._id, updatedUser),
+            UserCacheService.updateFavourites(user._id, updatedUser.favourites)
+        ]);
 
         return res.status(200).json(
             new ApiResponse(200, "Recipe added to favourites", {
                 recipeId,
                 liked: true,
-                totalLikes: recipe.likeCount.length,
+                totalLikes: updatedRecipe.likes.length,
             })
         );
     } catch (error) {
@@ -808,39 +803,49 @@ const handleUnlikeRecipe = async (req, res, next) => {
             return next(new ApiError(404, "Recipe not found"));
         }
 
-        const alreadyLiked = recipe.likeCount?.includes(user._id);
+        const alreadyLiked = recipe.likes?.includes(user._id);
 
         if (!alreadyLiked) {
             return res.status(200).json(
                 new ApiResponse(200, "Recipe removed from favourites", {
                     recipeId,
                     liked: false,
-                    totalLikes: recipe.likeCount.length,
+                    totalLikes: recipe.likes.length,
                 })
             );
         }
 
-        // remove like
-        recipe.likeCount.pull(user._id);
-        user.favourites.pull(recipeId);
+        // Remove like atomically + update user favourites atomically
+        const [updatedRecipe, updatedUser] = await Promise.all([
+            Recipe.findByIdAndUpdate(
+                recipeId,
+                { $pull: { likes: user._id } },
+                { new: true }
+            ),
+            User.findByIdAndUpdate(
+                user._id,
+                { $pull: { favourites: recipeId } },
+                { new: true }
+            ),
+        ]);
 
-        // concurrent save instead of sequential
-        await Promise.all([recipe.save(), user.save()]);
-
-        await deleteCache(`recipe:${recipeId}`);
-
-        await UserCacheService.updateProfile(user._id, user);
-        await UserCacheService.updateFavourites(user._id, user.favourites);
+        // Invalidate detail cache and feeds; update user caches from fresh DB data
+        await Promise.all([
+            RecipeCacheService.invalidateRecipeDetail(recipeId),
+            RecipeCacheService.invalidateAllFeeds(),
+            UserCacheService.updateProfile(user._id, updatedUser),
+            UserCacheService.updateFavourites(user._id, updatedUser.favourites)
+        ]);
 
         return res.status(200).json(
             new ApiResponse(200, "Recipe removed from favourites", {
                 recipeId,
                 liked: false,
-                totalLikes: recipe.likeCount.length,
+                totalLikes: updatedRecipe.likes.length,
             })
         );
     } catch (error) {
-        console.log("Error removing from favourites:", error);
+        console.log("Error while removing from favourites:", error);
         return next(
             error instanceof ApiError
                 ? error
@@ -1009,7 +1014,7 @@ const handleGetSearchRecipe = async (req, res, next) => {
             pipeline.push({
                 $addFields: {
                     likesCount: {
-                        $size: { $ifNull: ["$likeCount", []] },
+                        $size: { $ifNull: ["$likes", []] },
                     },
                 },
             });
@@ -1042,17 +1047,10 @@ const handleGetSearchRecipe = async (req, res, next) => {
                     { $limit: limit },
                     {
                         $project: {
-                            _id: 1,
-                            title: 1,
-                            description: 1,
-                            "thumbnail.secure_url": 1,
-                            chefId: 1,
-                            isPremium: 1,
-                            servings: 1,
-                            cuisine: 1,
-                            dietaryLabels: 1,
-                            likeCount: 1,
-                            // totalCookingTime: 1,
+                            reviews: 0,
+                            steps: 0,
+                            externalMediaLinks: 0,
+                            ingredients: 0,
                         },
                     },
                 ],
@@ -1064,6 +1062,8 @@ const handleGetSearchRecipe = async (req, res, next) => {
 
         const recipes = result[0]?.data || [];
         const total = result[0]?.totalCount[0]?.count || 0;
+
+
 
         res.status(200).json(
             new ApiResponse(200, "Recipes fetched successfully", {
@@ -1091,20 +1091,16 @@ const handleGetSearchRecipe = async (req, res, next) => {
 
 const getSimilarRecipes = async (req, res, next) => {
     try {
-        const limit = Number(req.query.limit) || 10;
-        const cacheKey = `recipe:${req.params.id}`;
-        let recipe = await getCache(cacheKey);
+        const limit = Number(req.query.limit) || 12;
+        const recipeId = req.params.id;
+
+        const recipe = await Recipe.findOne({
+            _id: recipeId,
+            isActive: true,
+        }).select("cuisine dietaryLabels ingredients.name uuid").lean();
 
         if (!recipe) {
-            recipe = await Recipe.findOne({
-                _id: req.params.id,
-                isActive: true,
-            });
-            if (!recipe) {
-                throw new ApiError(404, "Recipe not found");
-            }
-
-            await setCache(cacheKey, recipe, 3600);
+            throw new ApiError(404, "Recipe not found");
         }
 
         const searchQuery = `${recipe.cuisine} ${recipe.dietaryLabels.join(" ")} ${recipe.ingredients.map((ing) => ing.name).join(" ")}`;
@@ -1116,7 +1112,9 @@ const getSimilarRecipes = async (req, res, next) => {
             .slice(0, limit);
         const recipes = await Recipe.find({
             uuid: { $in: uuids },
-        }).select("-ingredients -steps -reviews -externalMediaLinks");
+        }).select("-ingredients -steps -reviews -externalMediaLinks").lean();
+
+
 
         return res
             .status(200)
@@ -1192,7 +1190,7 @@ const addReview = async (req, res, next) => {
         const reviewsGiven = await User.findByIdAndUpdate(userId, {
             $push: {
                 reviewsGiven: {
-                    targetType: "RECIPE",
+                    targetType: "Recipe",
                     targetId: recipeId,
                     rating,
                     message: message.trim(),
@@ -1207,28 +1205,21 @@ const addReview = async (req, res, next) => {
             })
             .lean();
 
-        await UserCacheService.invalidateProfile(userId);
-        await UserCacheService.updateReviewsGiven(userId, reviewsGiven);
-
         recalculateRecipeRatings(recipe);
         await recipe.save();
 
         await Promise.all([
-            deleteCache(`recipe:${recipeId}`),
-            deleteCache(`recipe:${recipeId}:reviews:summary`)
+            UserCacheService.invalidateProfile(userId),
+            UserCacheService.updateReviewsGiven(userId, reviewsGiven),
+            RecipeCacheService.updateRecipeDetail(recipeId, recipe.toObject()),
+            RecipeCacheService.invalidateRecipeReviews(recipeId),
         ]);
-
-        await setCache(
-            `recipe:${recipeId}`,
-            recipe.toObject(),
-            3600
-        );
 
         return res
             .status(201)
             .json(new ApiResponse(201, "Review added successfully"));
     } catch (error) {
-        console.error("Error adding review:", error);
+        console.error("Error while adding review:", error);
         return next(
             error instanceof ApiError
                 ? error
@@ -1312,7 +1303,7 @@ const updateReview = async (req, res, next) => {
             {
                 arrayFilters: [
                     {
-                        "elem.targetType": "RECIPE",
+                        "elem.targetType": "Recipe",
                         "elem.targetId": recipeId,
                     },
                 ],
@@ -1325,28 +1316,21 @@ const updateReview = async (req, res, next) => {
             })
             .lean();
 
-        await UserCacheService.invalidateProfile(userId);
-        await UserCacheService.updateReviewsGiven(userId, reviewsGiven);
-
         recalculateRecipeRatings(recipe);
         await recipe.save();
 
         await Promise.all([
-            deleteCache(`recipe:${recipeId}`),
-            deleteCache(`recipe:${recipeId}:reviews:summary`)
+            UserCacheService.invalidateProfile(userId),
+            UserCacheService.updateReviewsGiven(userId, reviewsGiven),
+            RecipeCacheService.updateRecipeDetail(recipeId, recipe.toObject()),
+            RecipeCacheService.invalidateRecipeReviews(recipeId),
         ]);
-
-        await setCache(
-            `recipe:${recipeId}`,
-            recipe,
-            3600
-        );
 
         return res
             .status(200)
             .json(new ApiResponse(200, "Review updated successfully"));
     } catch (error) {
-        console.error("Error updating review:", error);
+        console.error("Error while updating review:", error);
         return next(
             error instanceof ApiError
                 ? error
@@ -1394,7 +1378,7 @@ const deleteReview = async (req, res, next) => {
         const reviewsGiven = await User.findByIdAndUpdate(userId, {
             $pull: {
                 reviewsGiven: {
-                    targetType: "RECIPE",
+                    targetType: "Recipe",
                     targetId: recipeId,
                 },
             },
@@ -1405,28 +1389,21 @@ const deleteReview = async (req, res, next) => {
             })
             .lean();
 
-        await UserCacheService.invalidateProfile(userId);
-        await UserCacheService.updateReviewsGiven(userId, reviewsGiven);
-
         recalculateRecipeRatings(recipe);
         await recipe.save();
 
         await Promise.all([
-            deleteCache(`recipe:${recipeId}`),
-            deleteCache(`recipe:${recipeId}:reviews:summary`)
+            UserCacheService.invalidateProfile(userId),
+            UserCacheService.updateReviewsGiven(userId, reviewsGiven),
+            RecipeCacheService.updateRecipeDetail(recipeId, recipe.toObject()),
+            RecipeCacheService.invalidateRecipeReviews(recipeId),
         ]);
-
-        await setCache(
-            `recipe:${recipeId}`,
-            recipe.toObject(),
-            3600
-        );
 
         return res
             .status(200)
             .json(new ApiResponse(200, "Review deleted successfully"));
     } catch (error) {
-        console.error("Error deleting review:", error);
+        console.error("Error while deleting review:", error);
         return next(
             error instanceof ApiError
                 ? error
@@ -1440,22 +1417,20 @@ const getAllReviews = async (req, res, next) => {
         const { recipeId } = req.params;
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 10;
+        const skip = (page - 1) * limit;
 
         if (!mongoose.Types.ObjectId.isValid(recipeId)) {
             throw new ApiError(400, "Invalid recipe ID format");
         }
 
-        const cacheKey = `recipe:${recipeId}:reviews:summary`;
-        let summaryData = await getCache(cacheKey);
+        // Cache holds only summary metadata (averageRating, totalReviews, breakdown)
+        let summaryData = await RecipeCacheService.getRecipeReviews(recipeId);
 
         if (!summaryData) {
             const recipe = await Recipe.findOne({
                 _id: recipeId,
                 isActive: true
-            }).select("averageRating reviews").populate({
-                path: "reviews.userId",
-                select: "profile.name profile.avatar",
-            }).lean();
+            }).select("averageRating reviews.rating").lean();
 
             if (!recipe) {
                 throw new ApiError(404, "Recipe not found or is inactive");
@@ -1473,21 +1448,21 @@ const getAllReviews = async (req, res, next) => {
                 averageRating: recipe.averageRating || 0,
                 totalReviews: reviewsList.length,
                 breakdown,
-                reviews: reviewsList
             };
 
-            await setCache(cacheKey, summaryData, 3600);
+            await RecipeCacheService.updateRecipeReviews(recipeId, summaryData);
         }
 
-        // Apply pagination and sorting in-memory
-        const startIndex = (page - 1) * limit;
-        const endIndex = page * limit;
+        // Always fetch paginated reviews from DB (not from cache)
+        const recipe = await Recipe.findOne({ _id: recipeId, isActive: true })
+            .select("reviews")
+            .populate({ path: "reviews.userId", select: "profile.name profile.avatar" })
+            .lean();
 
-        const sortedReviews = [...summaryData.reviews].sort(
+        const sortedReviews = (recipe?.reviews || []).sort(
             (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
         );
-
-        const paginatedReviews = sortedReviews.slice(startIndex, endIndex);
+        const paginatedReviews = sortedReviews.slice(skip, skip + limit);
 
         return res.status(200).json(
             new ApiResponse(200, "Review summary fetched successfully", {
@@ -1503,7 +1478,7 @@ const getAllReviews = async (req, res, next) => {
             })
         );
     } catch (error) {
-        console.error("Error fetching recipe review summary:", error);
+        console.error("Error while fetching recipe review summary:", error);
         return next(
             error instanceof ApiError
                 ? error

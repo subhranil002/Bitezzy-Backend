@@ -361,6 +361,8 @@ const handleChangePassword = async (req, res, next) => {
         user.refreshToken = undefined;
         await user.save();
 
+        await UserCacheService.invalidateProfile(req.user._id);
+
         res.clearCookie("accessToken", {
             httpOnly: true,
             secure: true,
@@ -487,6 +489,8 @@ const handleResetPassword = async (req, res, next) => {
         user.forgotPasswordToken = undefined;
         user.forgotPasswordExpiry = undefined;
         await user.save();
+
+        await UserCacheService.invalidateProfile(user._id);
 
         return res
             .status(200)
@@ -728,23 +732,15 @@ const handleGetMySubscribers = async (req, res, next) => {
 
 const handleGetChefRecipesById = async (req, res, next) => {
     try {
-        const userId = req.params.id;
-        let recipes = await UserCacheService.getChefRecipes(userId);
+        const chefId = req.params.id;
+        let recipes = await UserCacheService.getChefRecipes(chefId);
 
         if (!recipes) {
-            const user = await User.findOne({
-                _id: userId,
-                isActive: true,
-            })
-                .select("chefProfile.recipes")
-                .populate("chefProfile.recipes");
+            recipes = await Recipe.find({ chefId, isActive: true })
+                .select("-reviews -steps -externalMediaLinks -ingredients")
+                .lean();
 
-            if (!user) {
-                throw new ApiError(404, "User not found");
-            }
-
-            recipes = user.chefProfile?.recipes || [];
-            await UserCacheService.updateChefRecipes(userId, recipes);
+            await UserCacheService.updateChefRecipes(chefId, recipes);
         }
 
         return res
@@ -814,6 +810,7 @@ const handleGetFavourites = async (req, res, next) => {
                 _id: req.user._id,
                 isActive: true,
             }).populate("favourites");
+            if (!user) throw new ApiError(404, "User not found");
 
             favourites = user.favourites;
             await UserCacheService.updateFavourites(userId, favourites);
@@ -1030,7 +1027,7 @@ const addChefReview = async (req, res, next) => {
         const updatedReviewer = await User.findByIdAndUpdate(userId, {
             $push: {
                 reviewsGiven: {
-                    targetType: "CHEF",
+                    targetType: "User",
                     targetId: chefId,
                     rating,
                     message: message.trim(),
@@ -1039,11 +1036,6 @@ const addChefReview = async (req, res, next) => {
                 },
             },
         }, { new: true });
-
-        const chefRecipes = await Recipe.find(
-            { chefId },
-            "_id"
-        ).lean();
 
         await UserCacheService.updateProfile(userId, updatedReviewer);
         await UserCacheService.updateReviewsGiven(userId, updatedReviewer.reviewsGiven);
@@ -1131,18 +1123,13 @@ const updateChefReview = async (req, res, next) => {
             {
                 arrayFilters: [
                     {
-                        "elem.targetType": "CHEF",
+                        "elem.targetType": "User",
                         "elem.targetId": chefId,
                     },
                 ],
                 new: true,
             }
         );
-
-        const chefRecipes = await Recipe.find(
-            { chefId },
-            "_id"
-        ).lean();
 
         await UserCacheService.updateProfile(userId, updatedReviewer);
         await UserCacheService.updateReviewsGiven(userId, updatedReviewer.reviewsGiven);
@@ -1200,16 +1187,11 @@ const deleteChefReview = async (req, res, next) => {
         const updatedReviewer = await User.findByIdAndUpdate(userId, {
             $pull: {
                 reviewsGiven: {
-                    targetType: "CHEF",
+                    targetType: "User",
                     targetId: new mongoose.Types.ObjectId(chefId),
                 },
             },
         }, { new: true });
-
-        const chefRecipes = await Recipe.find(
-            { chefId },
-            "_id"
-        ).lean();
 
         await UserCacheService.updateProfile(userId, updatedReviewer);
         await UserCacheService.updateReviewsGiven(userId, updatedReviewer.reviewsGiven);
@@ -1240,6 +1222,7 @@ const getAllChefReviews = async (req, res, next) => {
         const { chefId } = req.params;
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 10;
+        const skip = (page - 1) * limit;
 
         if (!mongoose.Types.ObjectId.isValid(chefId)) {
             throw new ApiError(400, "Invalid chef ID format");
@@ -1252,7 +1235,7 @@ const getAllChefReviews = async (req, res, next) => {
                 _id: chefId,
                 role: "CHEF",
                 isActive: true
-            }).select("chefProfile.averageRating chefProfile.reviews").lean();
+            }).select("chefProfile.averageRating chefProfile.reviews.rating").lean();
 
             if (!chef) {
                 throw new ApiError(404, "Chef not found or is inactive");
@@ -1270,21 +1253,21 @@ const getAllChefReviews = async (req, res, next) => {
                 averageRating: chef.chefProfile?.averageRating || 0,
                 totalReviews: reviewsList.length,
                 breakdown,
-                reviews: reviewsList
             };
 
             await UserCacheService.updateChefReviewSummary(chefId, summaryData);
         }
 
-        // Apply pagination and sorting in-memory
-        const startIndex = (page - 1) * limit;
-        const endIndex = page * limit;
+        // Always fetch paginated reviews from DB (not from cache)
+        const chef = await User.findOne({ _id: chefId, role: "CHEF", isActive: true })
+            .select("chefProfile.reviews")
+            .populate({ path: "chefProfile.reviews.userId", select: "profile.name profile.avatar" })
+            .lean();
 
-        const sortedReviews = [...summaryData.reviews].sort(
+        const sortedReviews = (chef?.chefProfile?.reviews || []).sort(
             (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
         );
-
-        const paginatedReviews = sortedReviews.slice(startIndex, endIndex);
+        const paginatedReviews = sortedReviews.slice(skip, skip + limit);
 
         return res.status(200).json(
             new ApiResponse(200, "Review summary fetched successfully", {
