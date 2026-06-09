@@ -1,6 +1,6 @@
 import { Worker } from "node:worker_threads";
 
-const WORKER_TIMEOUT_MS = 30_000;
+const WORKER_TIMEOUT_MS = 150_000; // 2.5 minutes
 
 export function userQueryProcessor(payload) {
     return new Promise((resolve, reject) => {
